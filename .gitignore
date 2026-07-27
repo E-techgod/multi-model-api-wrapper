@@ -1,6 +1,8 @@
 # Python Build Artifacts & Bytecode
+graphify-out/
 __pycache__/
 *.pyc
+llm_context_payload.txt
 
 # Virtual Environments
 .venv/

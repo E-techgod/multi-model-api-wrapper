@@ -183,7 +183,7 @@ def main() -> None:
     load_dotenv()
 
     api_key = os.getenv("GEMINI_API_KEY")
-    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")  # gemini-2.5-flash
+    model = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")  # gemini-2.5-flash
 
     if not api_key:
         raise ValueError("Gemini API key is missing. Add it to your .env file before running script")
