@@ -23,6 +23,7 @@ import httpx
 from dotenv import load_dotenv
 from google import genai
 from google.genai import errors
+from src.models.model_response import ModelResponse
 
 
 def generate_response(client: genai.Client, model: str, prompt: str) -> None:
@@ -178,6 +179,41 @@ def print_success(response: object, model: str, latency_seconds: float) -> None:
     print(f"Output tokens: {response.usage_metadata.candidates_token_count}")
     print(f"Total tokens: {response.usage_metadata.total_token_count}")
 
+def normalize_gemini_response(response, model: str,latency_seconds: float) -> ModelResponse:
+    usage = response.usage_metadata
+
+    input_tokens = getattr(usage, "prompt_token_count", 0)
+    output_tokens = getattr(usage, "candidates_token_count", 0)
+    total_tokens = getattr(usage, "total_token_count", 0)
+
+    return ModelResponse(
+        provider="gemini",
+        model=model,
+        content=response.text,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        total_tokens=total_tokens,
+        latency_seconds=latency_seconds,
+        finish_reason=None,
+        raw_response=response,
+    )
+
+def print_model_response(response: ModelResponse) -> None:
+    print("\n--- Generated content ---")
+    print(response.content)
+
+    print("\n--- Normalized metadata ---")
+    print(f"Provider: {response.provider}")
+    print(f"Model: {response.model}")
+    print(f"Response ID: {response.response_id}")
+    print(f"Request ID: {response.request_id}")
+    print(f"Finish reason: {response.finish_reason}")
+    print(f"Latency: {response.latency_seconds:.3f} seconds")
+
+    print("\n--- Token usage ---")
+    print(f"Input tokens: {response.input_tokens}")
+    print(f"Output tokens: {response.output_tokens}")
+    print(f"Total tokens: {response.total_tokens}")
 
 def main() -> None:
     load_dotenv()

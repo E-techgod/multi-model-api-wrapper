@@ -15,7 +15,7 @@ import time
 import openai
 from dotenv import load_dotenv
 from openai import OpenAI
-
+from src.models.model_response import ModelResponse
 
 def generate_response(client: OpenAI, model: str, prompt: str) -> None:
     """Send one OpenAI request and print its response metadata."""
@@ -173,6 +173,44 @@ def print_success(response: object, model: str, latency_seconds: float) -> None:
     print(f"Input tokens: {response.usage.input_tokens}")
     print(f"Output tokens: {response.usage.output_tokens}")
     print(f"Total tokens: {response.usage.total_tokens}")
+
+def normalize_openai_response(response, latency_seconds: float) -> ModelResponse:
+    usage = response.usage
+
+    input_tokens = usage.input_tokens if usage else 0
+    output_tokens = usage.output_tokens if usage else 0
+    total_tokens = usage.total_tokens if usage else 0
+
+    return ModelResponse(
+        provider="openai",
+        model=response.model,
+        content=response.output_text,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        total_tokens=total_tokens,
+        latency_seconds=latency_seconds,
+        finish_reason=response.status,
+        response_id=response.id,
+        request_id=getattr(response, "_request_id", None),
+        raw_response=response,
+    )
+
+def print_model_response(response: ModelResponse) -> None:
+    print("\n--- Generated content ---")
+    print(response.content)
+
+    print("\n--- Normalized metadata ---")
+    print(f"Provider: {response.provider}")
+    print(f"Model: {response.model}")
+    print(f"Response ID: {response.response_id}")
+    print(f"Request ID: {response.request_id}")
+    print(f"Finish reason: {response.finish_reason}")
+    print(f"Latency: {response.latency_seconds:.3f} seconds")
+
+    print("\n--- Token usage ---")
+    print(f"Input tokens: {response.input_tokens}")
+    print(f"Output tokens: {response.output_tokens}")
+    print(f"Total tokens: {response.total_tokens}")
 
 def main() -> None:
     load_dotenv()

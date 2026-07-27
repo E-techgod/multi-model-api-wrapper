@@ -15,6 +15,7 @@ import time
 import groq
 from dotenv import load_dotenv
 from groq import Groq
+from src.models.model_response import ModelResponse
 
 
 def generate_response(client: Groq, model: str, prompt: str) -> None:
@@ -175,6 +176,39 @@ def print_success(response: object, model: str, latency_seconds: float) -> None:
     print(f"Output tokens: {response.usage.completion_tokens}")
     print(f"Total tokens: {response.usage.total_tokens}")
 
+def normalize_groq_response(response, latency_seconds: float) -> ModelResponse:
+    usage = response.usage
+    choice = response.choices[0]
+
+    return ModelResponse(
+        provider="groq",
+        model=response.model,
+        content=choice.message.content or "",
+        input_tokens=usage.prompt_tokens,
+        output_tokens=usage.completion_tokens,
+        total_tokens=usage.total_tokens,
+        latency_seconds=latency_seconds,
+        finish_reason=choice.finish_reason,
+        response_id=response.id,
+        raw_response=response,
+    )
+
+def print_model_response(response: ModelResponse) -> None:
+    print("\n--- Generated content ---")
+    print(response.content)
+
+    print("\n--- Normalized metadata ---")
+    print(f"Provider: {response.provider}")
+    print(f"Model: {response.model}")
+    print(f"Response ID: {response.response_id}")
+    print(f"Request ID: {response.request_id}")
+    print(f"Finish reason: {response.finish_reason}")
+    print(f"Latency: {response.latency_seconds:.3f} seconds")
+
+    print("\n--- Token usage ---")
+    print(f"Input tokens: {response.input_tokens}")
+    print(f"Output tokens: {response.output_tokens}")
+    print(f"Total tokens: {response.total_tokens}")
 
 def main() -> None:
     load_dotenv()
