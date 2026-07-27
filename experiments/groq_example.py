@@ -12,7 +12,6 @@ This experiment prints:
 import os
 import time
 from dotenv import load_dotenv
-from openai import OpenAI
 from groq import Groq
 
 def main() -> None:

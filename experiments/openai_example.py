@@ -10,14 +10,12 @@ This experiment prints:
 """
 
 import os
-from pydoc import cli
 import time
-from urllib import response
 
 import openai
 from dotenv import load_dotenv
 from openai import OpenAI
-import prompt_toolkit
+
 
 def generate_response(client: OpenAI, model: str, prompt: str) -> None:
     """Send one OpenAI request and print its response metadata."""
@@ -28,6 +26,7 @@ def generate_response(client: OpenAI, model: str, prompt: str) -> None:
         response=client.responses.create(
             model= model,
             input=prompt,
+            max_output_tokens=-1,
         )
 
     except openai.AuthenticationError as error: # has to do with the key
@@ -179,7 +178,7 @@ def main() -> None:
     load_dotenv()
 
     api_key= os.getenv("OPENAI_API_KEY")
-    model= os.getenv("OPENAI_MODEL", "gpt-4o-mini-2024-07-18")
+    model= os.getenv("OPENAI_MODEL", "gpt-4o-mini-2024-07-18") #gpt-4o-mini-2024-07-18
 
     if not api_key:
         raise ValueError("OpenAI API key is misisng. Add it to your .env file before runing script")
