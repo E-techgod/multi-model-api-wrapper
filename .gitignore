@@ -1,5 +1,6 @@
 # Python Build Artifacts & Bytecode
 __pycache__/
+*.pyc
 
 # Virtual Environments
 .venv/
