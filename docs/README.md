@@ -46,7 +46,9 @@ runnable script.
 - `src/models/stream_event.py` — the normalized `LLMStreamEvent` dataclass
   used for streaming text deltas and the final response event.
 - `src/factory/` — `ClientFactory.create(provider, model, api_key, **kwargs)`
-  picks the right client from a provider string/enum.
+  picks the right client from a provider string/enum. `providers.py` also
+  holds `DEFAULT_MODELS`, the per-provider default model `main.py` falls
+  back to when `-model` isn't passed on the CLI.
 - `src/config/` — `LLMSettings` (provider, model, api_key, timeout,
   max_retries) and `build_llm_client()`, which is `LLMSettings ->
   ClientFactory.create()` in one call.
@@ -95,13 +97,14 @@ Everything below it (`ModelResponse`, `LLMStreamEvent`, pricing, errors) is
 shared, provider-agnostic output shape. The four client classes are the only
 code that touches a provider SDK directly.
 
-`main.py` is the one wired-up runnable entry point today: it hardcodes
-`provider="groq"` / `model="llama-3.1-8b-instant"` in `LLMSettings`, builds a
-client, streams a response, and prints it. `src/services/llm_service.py` has
-a second, env-driven entry point (`LLM_PROVIDER`/`LLM_MODEL` via
-`load_llm_settings()`) behind the same `LLMService` wrapper, but nothing
-currently calls it as the "real" way in — it's there for the service-object
-shape more than as a CLI.
+`main.py` is the one wired-up runnable entry point today: it parses
+`-provider`/`-model`/`-prompt` from `argparse`, resolves `model` to
+`DEFAULT_MODELS[provider]` (in `src/factory/providers.py`) when `-model` is
+omitted, builds a client, streams a response, and prints it.
+`src/services/llm_service.py` has a second, env-driven entry point
+(`LLM_PROVIDER`/`LLM_MODEL` via `load_llm_settings()`) behind the same
+`LLMService` wrapper, but nothing currently calls it as the "real" way in —
+it's there for the service-object shape more than as a CLI.
 
 ## Usage
 
@@ -143,11 +146,20 @@ which provider answered. Errors are the same story — catch `RateLimitError`,
 `ProviderUnavailableError` from `src/errors.py` instead of four different
 SDK exception types.
 
-Or just run the wired-up script:
+Or just run the wired-up CLI script:
 
 ```bash
-uv run python main.py
+uv run main.py -provider groq -prompt "Explain semantic search in one sentence."
+
+# -model is optional; omit it to use the provider's default model
+uv run main.py -provider openai -model gpt-4o-mini-2024-07-18 -prompt "Explain semantic search in one sentence."
 ```
+
+`-provider`/`--provider` and `-prompt`/`--prompt` are required; `-provider`
+is validated against `ClientFactory.supported_providers()`, so an unknown
+provider fails fast with a usage error instead of a traceback. `-model`/
+`--model` is optional — when omitted, `main.py` looks up
+`DEFAULT_MODELS[provider]` in `src/factory/providers.py`.
 
 ## Providers
 
@@ -212,9 +224,10 @@ uv run pytest -q
 
 ## Known limitations
 
-- `main.py` hardcodes the provider and model in source — there's no CLI flag
-  or arg to switch providers/models at the wired-up entry point; you either
-  edit `main.py` or use `ClientFactory`/`load_llm_settings()` directly.
+- `main.py`'s CLI only exposes `-provider`/`-model`/`-prompt` — there's no
+  flag yet for `temperature`, `max_tokens`, `timeout`, `max_retries`, or a
+  custom `system_prompt` (the system prompt is still hardcoded in `main.py`);
+  use `ClientFactory`/`load_llm_settings()` directly for those.
 - `PricingRegistry` is a hardcoded, manually maintained dict of exact model
   IDs. Any model not explicitly added returns no cost — silently, not an
   error.
