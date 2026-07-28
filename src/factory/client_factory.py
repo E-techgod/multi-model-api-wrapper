@@ -14,12 +14,7 @@ class ClientFactory:
     """Create provider-specific LLM clients behind a shared interface."""
 
     @staticmethod
-    def create(
-        provider: str | LLMProvider,
-        model: str,
-        api_key: str | None = None,
-        **kwargs: Any,
-    ) -> BaseLLMClient:
+    def create(provider: str | LLMProvider,model: str,api_key: str | None = None,**kwargs: Any) -> BaseLLMClient:
         """
         Create an LLM client for the requested provider.
 
@@ -78,9 +73,7 @@ class ClientFactory:
         )
 
     @staticmethod
-    def _normalize_provider(
-        provider: str | LLMProvider,
-    ) -> LLMProvider:
+    def _normalize_provider(provider: str | LLMProvider) -> LLMProvider:
         """Normalize a provider string into an LLMProvider member."""
 
         if isinstance(provider, LLMProvider):
