@@ -9,6 +9,7 @@ from src.clients.gemini import GeminiClient
 def create_fake_gemini_response() -> SimpleNamespace:
     return SimpleNamespace(
         text="Normalized Gemini response",
+        model_version="test-model",
         usage_metadata=SimpleNamespace(
             prompt_token_count=14,
             candidates_token_count=9,
@@ -58,13 +59,41 @@ def test_generate_returns_model_response(
 
 
 @patch("src.clients.gemini.genai.Client")
-def test_generate_uses_model_override(
+def test_generate_passes_system_prompt(
     mock_genai_client_class: MagicMock,
 ) -> None:
     mock_sdk_client = mock_genai_client_class.return_value
     mock_sdk_client.models.generate_content.return_value = (
         create_fake_gemini_response()
     )
+
+    client = GeminiClient(
+        api_key="test-key",
+        default_model="test-model",
+    )
+
+    client.generate(
+        "Test prompt",
+        system_prompt="Follow instructions",
+    )
+
+    call_kwargs = (
+        mock_sdk_client.models.generate_content.call_args.kwargs
+    )
+    config = call_kwargs["config"]
+
+    assert config.system_instruction == "Follow instructions"
+
+
+@patch("src.clients.gemini.genai.Client")
+def test_generate_uses_model_override(
+    mock_genai_client_class: MagicMock,
+) -> None:
+    mock_sdk_client = mock_genai_client_class.return_value
+    fake_response = create_fake_gemini_response()
+    fake_response.model_version = "override-model"
+
+    mock_sdk_client.models.generate_content.return_value = fake_response
 
     client = GeminiClient(
         api_key="test-key",
@@ -179,10 +208,16 @@ def test_generate_handles_empty_text(
     assert response.content == ""
 
 
-def test_rejects_empty_api_key() -> None:
-    with pytest.raises(ValueError, match="api_key cannot be empty"):
+@patch.dict("os.environ", {}, clear=True)
+def test_rejects_missing_api_key() -> None:
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Gemini API key was not provided and "
+            "GEMINI_API_KEY is not set"
+        ),
+    ):
         GeminiClient(
-            api_key=" ",
             default_model="test-model",
         )
 
@@ -204,8 +239,24 @@ def test_rejects_empty_prompt(
         default_model="test-model",
     )
 
-    with pytest.raises(ValueError, match="prompt cannot be empty"):
+    with pytest.raises(ValueError, match="user_prompt cannot be empty"):
         client.generate(" ")
+
+
+@patch("src.clients.gemini.genai.Client")
+def test_rejects_empty_system_prompt(
+    mock_genai_client_class: MagicMock,
+) -> None:
+    client = GeminiClient(
+        api_key="test-key",
+        default_model="test-model",
+    )
+
+    with pytest.raises(ValueError, match="system_prompt cannot be empty"):
+        client.generate(
+            "Test prompt",
+            system_prompt=" ",
+        )
 
 
 @patch("src.clients.gemini.genai.Client")
@@ -254,3 +305,40 @@ def test_generate_handles_text_property_error(
     response = client.generate("Test prompt")
 
     assert response.content == ""
+
+
+@patch.dict(
+    "os.environ",
+    {"GEMINI_API_KEY": "env-test-key"},
+    clear=True,
+)
+@patch("src.clients.gemini.genai.Client")
+def test_uses_api_key_from_environment(
+    mock_genai_client_class: MagicMock,
+) -> None:
+    GeminiClient(default_model="test-model")
+
+    mock_genai_client_class.assert_called_once_with(
+        api_key="env-test-key",
+    )
+
+
+@patch("src.clients.gemini.genai.Client")
+def test_generate_uses_default_model_when_model_version_missing(
+    mock_genai_client_class: MagicMock,
+) -> None:
+    mock_sdk_client = mock_genai_client_class.return_value
+
+    fake_response = create_fake_gemini_response()
+    del fake_response.model_version
+
+    mock_sdk_client.models.generate_content.return_value = fake_response
+
+    client = GeminiClient(
+        api_key="test-key",
+        default_model="test-model",
+    )
+
+    response = client.generate("Test prompt")
+
+    assert response.model == "test-model"

@@ -1,5 +1,6 @@
 import time
 from typing import Any
+import os
 
 from google import genai
 from google.genai import types
@@ -11,9 +12,19 @@ from src.models.model_response import ModelResponse
 class GeminiClient(BaseLLMClient):
     """Gemini implementation of the shared LLM client interface."""
 
-    def __init__(self,model: str | None = None,api_key: str | None = None,**kwargs: Any) -> None:
-        if api_key is None or not api_key.strip():
-            raise ValueError("api_key cannot be empty")
+    def __init__(
+        self,
+        model: str | None = None,
+        api_key: str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        resolved_api_key = api_key or os.getenv("GEMINI_API_KEY")
+
+        if resolved_api_key is None or not resolved_api_key.strip():
+            raise ValueError(
+                "Gemini API key was not provided and "
+                "GEMINI_API_KEY is not set"
+            )
 
         default_model = kwargs.pop("default_model", None)
 
@@ -28,7 +39,7 @@ class GeminiClient(BaseLLMClient):
             raise ValueError("default_model cannot be empty")
 
         self._client = genai.Client(
-            api_key=api_key,
+            api_key=resolved_api_key,
             **kwargs,
         )
         self._default_model = selected_model
@@ -39,14 +50,18 @@ class GeminiClient(BaseLLMClient):
 
     def generate(
         self,
-        prompt: str,
+        user_prompt: str,
         *,
+        system_prompt: str | None = None,
         model: str | None = None,
         temperature: float = 0.0,
         max_tokens: int | None = None,
     ) -> ModelResponse:
-        if not prompt.strip():
-            raise ValueError("prompt cannot be empty")
+        if not user_prompt.strip():
+            raise ValueError("user_prompt cannot be empty")
+
+        if system_prompt is not None and not system_prompt.strip():
+            raise ValueError("system_prompt cannot be empty")
 
         if max_tokens is not None and max_tokens <= 0:
             raise ValueError("max_tokens must be greater than zero")
@@ -60,19 +75,22 @@ class GeminiClient(BaseLLMClient):
         if max_tokens is not None:
             config_options["max_output_tokens"] = max_tokens
 
+        if system_prompt is not None:
+            config_options["system_instruction"] = system_prompt
+
         config = types.GenerateContentConfig(**config_options)
 
         start_time = time.perf_counter()
 
         raw_response = self._client.models.generate_content(
             model=selected_model,
-            contents=prompt,
+            contents=user_prompt,
             config=config,
         )
 
         latency_seconds = time.perf_counter() - start_time
 
-        usage = raw_response.usage_metadata
+        usage = getattr(raw_response, "usage_metadata", None)
 
         input_tokens = (
             getattr(usage, "prompt_token_count", 0) or 0
@@ -92,7 +110,7 @@ class GeminiClient(BaseLLMClient):
 
         return ModelResponse(
             provider=self.provider_name,
-            model=selected_model,
+            model=getattr(raw_response, "model_version", selected_model),
             content=self._extract_text(raw_response),
             input_tokens=input_tokens,
             output_tokens=output_tokens,
