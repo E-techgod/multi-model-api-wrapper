@@ -5,8 +5,8 @@ ENTRY POINT
 -----------
 - No packaged CLI / console-script entry point in pyproject.toml.
 - Root script: main.py -> main() (guarded by `if __name__ == "__main__"`).
-  - Hardcodes LLMSettings(provider="groq", model="llama-3.1-8b-instant").
-  - load_dotenv() -> LLMSettings -> build_llm_client(settings) -> client.generate(...) -> prints streamed text, then provider/model/token/cost summary.
+  - argparse CLI: -provider/--provider (required, choices=ClientFactory.supported_providers()), -prompt/--prompt (required), -model/--model (optional, default=None).
+  - load_dotenv() -> parse_args() -> LLMSettings(provider=args.provider, model=args.model or DEFAULT_MODELS[LLMProvider(args.provider)]) -> build_llm_client(settings) -> client.generate(user_prompt=args.prompt, ...) -> prints streamed text, then provider/model/token/cost summary.
 - Secondary script: src/services/llm_service.py -> main() (guarded by `if __name__ == "__main__"`).
   - Uses load_llm_settings() (reads LLM_PROVIDER / LLM_MODEL / LLM_TIMEOUT / LLM_MAX_RETRIES from env) instead of hardcoded settings.
   - Wraps the client in LLMService before calling generate().
@@ -16,7 +16,7 @@ ENTRY POINT
 
 MAIN CALL FLOW
 --------------
-1. main.py: load_dotenv() reads .env; LLMSettings(provider, model) constructed directly (or via load_llm_settings() reading LLM_PROVIDER/LLM_MODEL/LLM_TIMEOUT/LLM_MAX_RETRIES env vars).
+1. main.py: load_dotenv() reads .env; parse_args() parses -provider/-model/-prompt via argparse; LLMSettings(provider=args.provider, model=args.model or DEFAULT_MODELS[LLMProvider(args.provider)]) constructed (or, for the alternate entry point, via load_llm_settings() reading LLM_PROVIDER/LLM_MODEL/LLM_TIMEOUT/LLM_MAX_RETRIES env vars).
 2. build_llm_client(settings) [src/config/client_builder.py] calls ClientFactory.create(provider=settings.provider, model=settings.model, api_key=settings.api_key, **settings.client_options()) where client_options() = {timeout, max_retries}.
 3. ClientFactory.create() [src/factory/client_factory.py] normalizes the provider string/enum via LLMProvider [src/factory/providers.py: OPENAI, ANTHROPIC, GEMINI, GROQ], then instantiates the matching concrete client (OpenAIClient / AnthropicClient / GeminiClient / GroqClient), forwarding model/api_key/**kwargs. Raises ValueError for unsupported/empty providers.
 4. Each concrete client __init__(model=None, api_key=None, **kwargs) resolves the API key from the explicit arg or an env var (OPENAI_API_KEY / ANTHROPIC_API_KEY / GEMINI_API_KEY / GROQ_API_KEY), accepts model positionally or via a `default_model` kwarg (not both), raises ValueError if either is missing/empty, and constructs the underlying provider SDK client with remaining **kwargs.
@@ -30,11 +30,11 @@ MAIN CALL FLOW
 
 KEY MODULES
 -----------
-- main.py — root runnable script; hardcoded provider/model demo of the full stack.
+- main.py — root runnable script; argparse CLI (-provider/-model/-prompt) driving the full stack.
 - src/config/settings.py — LLMSettings frozen dataclass (provider, model, api_key, timeout=30.0, max_retries=2) + client_options(); get_required_env(); load_llm_settings() (reads LLM_PROVIDER/LLM_MODEL/LLM_TIMEOUT/LLM_MAX_RETRIES).
 - src/config/client_builder.py — build_llm_client(settings) -> BaseLLMClient; thin wrapper calling ClientFactory.create().
 - src/factory/client_factory.py — ClientFactory.create() / ._normalize_provider() / .supported_providers(); maps provider string/enum to concrete client class.
-- src/factory/providers.py — LLMProvider(str, Enum): OPENAI, ANTHROPIC, GEMINI, GROQ.
+- src/factory/providers.py — LLMProvider(str, Enum): OPENAI, ANTHROPIC, GEMINI, GROQ; DEFAULT_MODELS: dict[LLMProvider, str] mapping each provider to its default model id, used by main.py when -model is omitted.
 - src/clients/base.py — BaseLLMClient(ABC); defines provider_name + generate() abstract interface, provides collect_response() default implementation.
 - src/clients/openai.py — OpenAIClient(BaseLLMClient); wraps openai SDK `responses.stream()`; reads OPENAI_API_KEY.
 - src/clients/anthropic.py — AnthropicClient(BaseLLMClient); wraps anthropic SDK `messages.stream()`; reads ANTHROPIC_API_KEY; defaults max_tokens to 1024 when unset.
