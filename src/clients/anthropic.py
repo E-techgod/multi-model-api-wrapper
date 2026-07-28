@@ -32,7 +32,11 @@ class AnthropicClient(BaseLLMClient):
             raise ValueError("max_tokens must be greater than zero")
 
         selected_model = model or self._default_model
-        selected_max_tokens = max_tokens or 1024
+        selected_max_tokens = ( 
+            max_tokens 
+            if max_tokens is not None 
+            else 1024
+        )
 
         start_time = time.perf_counter()
 
