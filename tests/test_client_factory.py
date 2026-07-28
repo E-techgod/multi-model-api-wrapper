@@ -8,6 +8,8 @@ from src.clients.groq import GroqClient
 from src.clients.openai import OpenAIClient
 from src.factory.client_factory import ClientFactory
 from src.factory.providers import LLMProvider
+from src.config.client_builder import build_llm_client
+from src.config.settings import LLMSettings
 
 def test_create_openai_client() -> None:
     client = ClientFactory.create(
@@ -265,3 +267,26 @@ def test_supported_providers() -> None:
         "groq",
     )
 
+@patch("src.config.client_builder.ClientFactory.create")
+def test_build_llm_client_uses_settings(
+    mock_create,
+) -> None:
+    settings = LLMSettings(
+        provider="groq",
+        model="llama-test",
+        api_key="test-key",
+        timeout=30.0,
+        max_retries=2,
+    )
+
+    result = build_llm_client(settings)
+
+    mock_create.assert_called_once_with(
+        provider="groq",
+        model="llama-test",
+        api_key="test-key",
+        timeout=30.0,
+        max_retries=2,
+    )
+
+    assert result is mock_create.return_value
