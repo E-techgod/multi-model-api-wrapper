@@ -28,7 +28,7 @@ filterwarnings = [
 ]
 
 [project.scripts]
-wrapper = "main:main"
+wrapper = "src.main:main"
 
 [tool.uv]
 package = true
