@@ -1,15 +1,11 @@
-from typing import Any
-
 from src.clients.base import BaseLLMClient
+from src.config.settings import LLMSettings
 from src.factory.client_factory import ClientFactory
 
-
-def build_llm_client(provider: str,model: str,api_key: str | None = None,*kwargs: Any) -> BaseLLMClient:
-    """Build an LLM client using provider-independent configuration."""
-
+def build_llm_client(settings: LLMSettings) -> BaseLLMClient:
     return ClientFactory.create(
-        provider=provider,
-        model=model,
-        api_key=api_key,
-        **kwargs,
+        provider=settings.provider,
+        model=settings.model,
+        api_key=settings.api_key,
+        **settings.client_options(),
     )

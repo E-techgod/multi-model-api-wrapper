@@ -1,57 +1,27 @@
-# main.py
-
-import argparse
-
 from src.config.client_builder import build_llm_client
 from src.config.settings import LLMSettings
-from src.factory.client_factory import ClientFactory
-from src.services.llm_service import LLMService
-
-
-def parse_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Send a prompt through a provider-independent LLM client."
-    )
-
-    parser.add_argument(
-        "--provider",
-        required=True,
-        choices=ClientFactory.supported_providers(),
-        help="LLM provider to use.",
-    )
-
-    parser.add_argument(
-        "--model",
-        required=True,
-        help="Provider-specific model identifier.",
-    )
-
-    parser.add_argument(
-        "prompt",
-        nargs="+",
-        help="Prompt to send to the model.",
-    )
-
-    return parser.parse_args()
+from dotenv import load_dotenv
 
 
 def main() -> None:
-    args = parse_arguments()
+    load_dotenv()
 
     settings = LLMSettings(
-        provider=args.provider,
-        model=args.model,
+        provider="groq",
+        model="llama-3.1-8b-instant",
     )
 
     client = build_llm_client(settings)
-    service = LLMService(client)
 
-    response = service.generate(
-        system_prompt="You are a helpful assistant.",
-        user_prompt=" ".join(args.prompt),
+    response = client.generate(
+        system_prompt="You are a concise assistant.",
+        user_prompt="Explain what dependency injection is in one sentence.",
     )
 
     print(response.content)
+    print(response.provider)
+    print(response.model)
+    print(response.usage)
 
 
 if __name__ == "__main__":

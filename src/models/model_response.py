@@ -38,3 +38,11 @@ class ModelResponse:
 
         if self.latency_seconds < 0:
             raise ValueError("latency_seconds cannot be negative")
+
+    @property
+    def usage(self) -> dict[str, int]:
+        return {
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "total_tokens": self.total_tokens,
+        }

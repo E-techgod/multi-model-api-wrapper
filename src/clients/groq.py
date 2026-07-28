@@ -1,6 +1,6 @@
 import time
 from typing import Any
-
+import os
 from groq import Groq
 
 from src.clients.base import BaseLLMClient
@@ -10,9 +10,14 @@ from src.models.model_response import ModelResponse
 class GroqClient(BaseLLMClient):
     """Groq implementation of the shared LLM client interface."""
 
-    def __init__(self,model: str | None = None,api_key: str | None = None,**kwargs: Any) -> None:
-        if api_key is None or not api_key.strip():
-            raise ValueError("api_key cannot be empty")
+    def __init__(self,model: str | None = None, api_key: str | None = None,**kwargs: Any) -> None:
+        resolved_api_key = api_key or os.getenv("GROQ_API_KEY")
+
+        if resolved_api_key is None or not resolved_api_key.strip():
+            raise ValueError(
+                "Groq API key was not provided and "
+                "GROQ_API_KEY is not set"
+            )
 
         default_model = kwargs.pop("default_model", None)
 
@@ -26,7 +31,10 @@ class GroqClient(BaseLLMClient):
         if selected_model is None or not selected_model.strip():
             raise ValueError("default_model cannot be empty")
 
-        self._client = Groq(api_key=api_key, **kwargs)
+        self._client = Groq(
+            api_key=resolved_api_key,
+            **kwargs,
+        )
         self._default_model = selected_model
 
     @property
@@ -35,28 +43,44 @@ class GroqClient(BaseLLMClient):
 
     def generate(
         self,
-        prompt: str,
+        user_prompt: str,
         *,
+        system_prompt: str | None = None,
         model: str | None = None,
         temperature: float = 0.0,
         max_tokens: int | None = None,
     ) -> ModelResponse:
-        if not prompt.strip():
-            raise ValueError("prompt cannot be empty")
+        if not user_prompt.strip():
+            raise ValueError("user_prompt cannot be empty")
+
+        if system_prompt is not None and not system_prompt.strip():
+            raise ValueError("system_prompt cannot be empty")
 
         if max_tokens is not None and max_tokens <= 0:
             raise ValueError("max_tokens must be greater than zero")
 
         selected_model = model or self._default_model
 
+        messages: list[dict[str, str]] = []
+
+        if system_prompt is not None:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                }
+            )
+
+        messages.append(
+            {
+                "role": "user",
+                "content": user_prompt,
+            }
+        )
+
         request_options: dict[str, object] = {
             "model": selected_model,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
+            "messages": messages,
             "temperature": temperature,
         }
 
@@ -79,15 +103,17 @@ class GroqClient(BaseLLMClient):
             if usage is not None
             else 0
         )
+
         output_tokens = (
             getattr(usage, "completion_tokens", 0) or 0
             if usage is not None
             else 0
         )
+
         total_tokens = (
             getattr(usage, "total_tokens", 0) or 0
             if usage is not None
-            else 0
+            else input_tokens + output_tokens
         )
 
         return ModelResponse(
