@@ -65,6 +65,39 @@ def test_generate_returns_model_response(
 
 
 @patch("src.clients.anthropic.Anthropic")
+def test_generate_passes_system_prompt(
+    mock_anthropic_class: MagicMock,
+) -> None:
+    mock_sdk_client = mock_anthropic_class.return_value
+    mock_sdk_client.messages.create.return_value = (
+        create_fake_anthropic_response()
+    )
+
+    client = AnthropicClient(
+        api_key="test-key",
+        default_model="test-model",
+    )
+
+    client.generate(
+        "Test prompt",
+        system_prompt="Follow instructions",
+    )
+
+    mock_sdk_client.messages.create.assert_called_once_with(
+        model="test-model",
+        max_tokens=1024,
+        temperature=0.0,
+        system="Follow instructions",
+        messages=[
+            {
+                "role": "user",
+                "content": "Test prompt",
+            }
+        ],
+    )
+
+
+@patch("src.clients.anthropic.Anthropic")
 def test_generate_uses_model_override(
     mock_anthropic_class: MagicMock,
 ) -> None:
@@ -181,10 +214,16 @@ def test_generate_returns_empty_content_when_no_text_blocks(
     assert response.content == ""
 
 
-def test_rejects_empty_api_key() -> None:
-    with pytest.raises(ValueError, match="api_key cannot be empty"):
+@patch.dict("os.environ", {}, clear=True)
+def test_rejects_missing_api_key() -> None:
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Anthropic API key was not provided and "
+            "ANTHROPIC_API_KEY is not set"
+        ),
+    ):
         AnthropicClient(
-            api_key=" ",
             default_model="test-model",
         )
 
@@ -206,8 +245,24 @@ def test_rejects_empty_prompt(
         default_model="test-model",
     )
 
-    with pytest.raises(ValueError, match="prompt cannot be empty"):
+    with pytest.raises(ValueError, match="user_prompt cannot be empty"):
         client.generate(" ")
+
+
+@patch("src.clients.anthropic.Anthropic")
+def test_rejects_empty_system_prompt(
+    mock_anthropic_class: MagicMock,
+) -> None:
+    client = AnthropicClient(
+        api_key="test-key",
+        default_model="test-model",
+    )
+
+    with pytest.raises(ValueError, match="system_prompt cannot be empty"):
+        client.generate(
+            "Test prompt",
+            system_prompt=" ",
+        )
 
 
 @patch("src.clients.anthropic.Anthropic")
@@ -227,3 +282,63 @@ def test_rejects_non_positive_max_tokens(
             "Test prompt",
             max_tokens=0,
         )
+
+
+@patch.dict(
+    "os.environ",
+    {"ANTHROPIC_API_KEY": "env-test-key"},
+    clear=True,
+)
+@patch("src.clients.anthropic.Anthropic")
+def test_uses_api_key_from_environment(
+    mock_anthropic_class: MagicMock,
+) -> None:
+    AnthropicClient(default_model="test-model")
+
+    mock_anthropic_class.assert_called_once_with(
+        api_key="env-test-key",
+    )
+
+
+@patch("src.clients.anthropic.Anthropic")
+def test_generate_handles_missing_usage(
+    mock_anthropic_class: MagicMock,
+) -> None:
+    mock_sdk_client = mock_anthropic_class.return_value
+
+    fake_response = create_fake_anthropic_response()
+    fake_response.usage = None
+
+    mock_sdk_client.messages.create.return_value = fake_response
+
+    client = AnthropicClient(
+        api_key="test-key",
+        default_model="test-model",
+    )
+
+    response = client.generate("Test prompt")
+
+    assert response.input_tokens == 0
+    assert response.output_tokens == 0
+    assert response.total_tokens == 0
+
+
+@patch("src.clients.anthropic.Anthropic")
+def test_generate_handles_missing_content(
+    mock_anthropic_class: MagicMock,
+) -> None:
+    mock_sdk_client = mock_anthropic_class.return_value
+
+    fake_response = create_fake_anthropic_response()
+    del fake_response.content
+
+    mock_sdk_client.messages.create.return_value = fake_response
+
+    client = AnthropicClient(
+        api_key="test-key",
+        default_model="test-model",
+    )
+
+    response = client.generate("Test prompt")
+
+    assert response.content == ""

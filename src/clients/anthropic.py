@@ -1,5 +1,6 @@
 import time
 from typing import Any
+import os
 
 from anthropic import Anthropic
 
@@ -10,9 +11,19 @@ from src.models.model_response import ModelResponse
 class AnthropicClient(BaseLLMClient):
     """Anthropic implementation of the shared LLM client interface."""
 
-    def __init__(self,model: str | None = None,api_key: str | None = None,**kwargs: Any) -> None:
-        if api_key is None or not api_key.strip():
-            raise ValueError("api_key cannot be empty")
+    def __init__(
+        self,
+        model: str | None = None,
+        api_key: str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        resolved_api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+
+        if resolved_api_key is None or not resolved_api_key.strip():
+            raise ValueError(
+                "Anthropic API key was not provided and "
+                "ANTHROPIC_API_KEY is not set"
+            )
 
         default_model = kwargs.pop("default_model", None)
 
@@ -26,16 +37,30 @@ class AnthropicClient(BaseLLMClient):
         if selected_model is None or not selected_model.strip():
             raise ValueError("default_model cannot be empty")
 
-        self._client = Anthropic(api_key=api_key, **kwargs)
+        self._client = Anthropic(
+            api_key=resolved_api_key,
+            **kwargs,
+        )
         self._default_model = selected_model
 
     @property
     def provider_name(self) -> str:
         return "anthropic"
 
-    def generate(self,prompt: str,*, model: str | None = None, temperature: float = 0.0, max_tokens: int | None = None) -> ModelResponse:
-        if not prompt.strip():
-            raise ValueError("prompt cannot be empty")
+    def generate(
+        self,
+        user_prompt: str,
+        *,
+        system_prompt: str | None = None,
+        model: str | None = None,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> ModelResponse:
+        if not user_prompt.strip():
+            raise ValueError("user_prompt cannot be empty")
+
+        if system_prompt is not None and not system_prompt.strip():
+            raise ValueError("system_prompt cannot be empty")
 
         if max_tokens is not None and max_tokens <= 0:
             raise ValueError("max_tokens must be greater than zero")
@@ -49,33 +74,49 @@ class AnthropicClient(BaseLLMClient):
 
         start_time = time.perf_counter()
 
-        raw_response = self._client.messages.create(
-            model=selected_model,
-            max_tokens=selected_max_tokens,
-            temperature=temperature,
-            messages=[
+        request_options: dict[str, object] = {
+            "model": selected_model,
+            "max_tokens": selected_max_tokens,
+            "temperature": temperature,
+            "messages": [
                 {
                     "role": "user",
-                    "content": prompt,
+                    "content": user_prompt,
                 }
             ],
-        )
+        }
+
+        if system_prompt is not None:
+            request_options["system"] = system_prompt
+
+        raw_response = self._client.messages.create(**request_options)
 
         latency_seconds = time.perf_counter() - start_time
 
-        input_tokens = raw_response.usage.input_tokens
-        output_tokens = raw_response.usage.output_tokens
+        usage = getattr(raw_response, "usage", None)
+        input_tokens = (
+            getattr(usage, "input_tokens", 0) or 0
+            if usage is not None
+            else 0
+        )
+        output_tokens = (
+            getattr(usage, "output_tokens", 0) or 0
+            if usage is not None
+            else 0
+        )
 
         return ModelResponse(
             provider=self.provider_name,
-            model=raw_response.model,
-            content=self._extract_text(raw_response.content),
+            model=getattr(raw_response, "model", selected_model),
+            content=self._extract_text(
+                getattr(raw_response, "content", []),
+            ),
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             total_tokens=input_tokens + output_tokens,
             latency_seconds=latency_seconds,
-            finish_reason=raw_response.stop_reason,
-            response_id=raw_response.id,
+            finish_reason=getattr(raw_response, "stop_reason", None),
+            response_id=getattr(raw_response, "id", None),
             request_id=getattr(raw_response, "_request_id", None),
             raw_response=raw_response,
         )

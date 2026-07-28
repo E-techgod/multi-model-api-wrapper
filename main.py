@@ -7,8 +7,8 @@ def main() -> None:
     load_dotenv()
 
     settings = LLMSettings(
-        provider="groq",
-        model="llama-3.1-8b-instant",
+        provider="anthropic",
+        model="claude-haiku-4-5-20251001",
     )
 
     client = build_llm_client(settings)
