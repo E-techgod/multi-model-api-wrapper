@@ -225,3 +225,32 @@ def test_rejects_non_positive_max_tokens(
             "Test prompt",
             max_tokens=0,
         )
+
+
+class TextErrorResponse:
+    usage_metadata = None
+    candidates = []
+    response_id = None
+
+    @property
+    def text(self) -> str:
+        raise ValueError("No textual candidate")
+
+
+@patch("src.clients.gemini_client.genai.Client")
+def test_generate_handles_text_property_error(
+    mock_genai_client_class: MagicMock,
+) -> None:
+    mock_sdk_client = mock_genai_client_class.return_value
+    mock_sdk_client.models.generate_content.return_value = (
+        TextErrorResponse()
+    )
+
+    client = GeminiClient(
+        api_key="test-key",
+        default_model="test-model",
+    )
+
+    response = client.generate("Test prompt")
+
+    assert response.content == ""
