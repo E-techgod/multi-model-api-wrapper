@@ -15,9 +15,13 @@ provider to force every response into that same structure.
 
 Once the shape was consistent, I pulled the provider calls behind a common
 interface (`BaseLLMClient` in `src/clients/`), so callers don't need to know
-which SDK they're talking to — just `generate(prompt, ...)`. Most recently I
-added a `ClientFactory` so the provider is just a string you pass in, instead
-of importing four different client classes.
+which SDK they're talking to — just `generate(prompt, ...)`. I added a
+`ClientFactory` so the provider is just a string you pass in, instead of
+importing four different client classes, then moved it under `src/factory/`
+so it packages alongside everything else. Most recently, all four client
+constructors were reworked to take `model`/`api_key`/`**kwargs` (with
+`default_model` still accepted via kwargs for backwards compatibility), so
+`ClientFactory.create()` can call every client the same way.
 
 ## Layout
 
@@ -28,15 +32,16 @@ of importing four different client classes.
   `GroqClient`, all implementing `BaseLLMClient`. This is the real wrapper.
 - `src/models/model_response.py` — the normalized `ModelResponse` dataclass
   every client returns.
-- `factory/` — `ClientFactory.create(provider, model, api_key)` picks the
-  right client from a provider string/enum.
+- `src/factory/` — `ClientFactory.create(provider, model, api_key, **kwargs)`
+  picks the right client from a provider string/enum.
 - `examples/` — one-shot demo scripts per provider.
-- `tests/` — unit tests for each client and for `ModelResponse`.
+- `tests/` — unit tests for each client, `ModelResponse`, and
+  `ClientFactory`.
 
 ## Usage
 
 ```python
-from factory.client_factory import ClientFactory
+from src.factory.client_factory import ClientFactory
 
 client = ClientFactory.create(
     provider="anthropic",   # "openai" | "anthropic" | "gemini" | "groq"
@@ -72,21 +77,16 @@ for the other providers.
 
 ## Running the examples
 
-`examples/try_openai.py` and `examples/try_gemini.py` run as-is.
-
-`examples/try_anthropic.py` and `examples/try_groq.py` are currently broken —
-they still import from `src.clients.anthropic_client` and
-`src.clients.groq_client`, which don't exist anymore (the modules are
-`src.clients.anthropic` and `src.clients.groq`). Needs a one-line import fix.
-None of the four example scripts use `ClientFactory` yet either — they
-instantiate the client classes directly.
+All four example scripts (`try_openai.py`, `try_anthropic.py`,
+`try_gemini.py`, `try_groq.py`) run as-is now — the stale
+`anthropic_client`/`groq_client` imports are fixed. None of them use
+`ClientFactory` yet, though; they still instantiate the client classes
+directly.
 
 ## Tests
 
-44 tests across the four clients and `ModelResponse`:
+54 tests across the four clients, `ModelResponse`, and `ClientFactory`:
 
 ```bash
-pytest
+uv run pytest -q
 ```
-
-`factory/` (the `ClientFactory` itself) doesn't have tests yet.
