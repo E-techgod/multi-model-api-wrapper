@@ -2,7 +2,7 @@ import os
 
 from dotenv import load_dotenv
 
-from src.clients.anthropic_client import AnthropicClient
+from src.clients.anthropic import AnthropicClient
 
 
 def main() -> None:

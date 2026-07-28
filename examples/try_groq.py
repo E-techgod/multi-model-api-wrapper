@@ -2,7 +2,7 @@ import os
 
 from dotenv import load_dotenv
 
-from src.clients.groq_client import GroqClient
+from src.clients.groq import GroqClient
 
 
 def main() -> None:
