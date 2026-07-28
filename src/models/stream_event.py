@@ -15,11 +15,7 @@ class LLMStreamEvent:
 
     def __post_init__(self) -> None:
         if self.type == "text_delta" and self.response is not None:
-            raise ValueError(
-                "text_delta events cannot include a response"
-            )
+            raise ValueError("text_delta events cannot include a response")
 
         if self.type == "response" and self.response is None:
-            raise ValueError(
-                "response events must include a response"
-            )
+            raise ValueError("response events must include a response")

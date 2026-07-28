@@ -1,7 +1,7 @@
+import os
 import time
 from collections.abc import Iterator
 from typing import Any
-import os
 
 from anthropic import Anthropic
 
@@ -24,16 +24,13 @@ class AnthropicClient(BaseLLMClient):
 
         if resolved_api_key is None or not resolved_api_key.strip():
             raise ValueError(
-                "Anthropic API key was not provided and "
-                "ANTHROPIC_API_KEY is not set"
+                "Anthropic API key was not provided and " "ANTHROPIC_API_KEY is not set"
             )
 
         default_model = kwargs.pop("default_model", None)
 
         if model is not None and default_model is not None:
-            raise ValueError(
-                "Pass either model or default_model, not both"
-            )
+            raise ValueError("Pass either model or default_model, not both")
 
         selected_model = model if model is not None else default_model
 
@@ -69,11 +66,7 @@ class AnthropicClient(BaseLLMClient):
             raise ValueError("max_tokens must be greater than zero")
 
         selected_model = model or self._default_model
-        selected_max_tokens = ( 
-            max_tokens 
-            if max_tokens is not None 
-            else 1024
-        )
+        selected_max_tokens = max_tokens if max_tokens is not None else 1024
 
         start_time = time.perf_counter()
 
@@ -121,14 +114,10 @@ class AnthropicClient(BaseLLMClient):
         latency_seconds = time.perf_counter() - start_time
         usage = getattr(raw_response, "usage", None)
         input_tokens = (
-            getattr(usage, "input_tokens", 0) or 0
-            if usage is not None
-            else 0
+            getattr(usage, "input_tokens", 0) or 0 if usage is not None else 0
         )
         output_tokens = (
-            getattr(usage, "output_tokens", 0) or 0
-            if usage is not None
-            else 0
+            getattr(usage, "output_tokens", 0) or 0 if usage is not None else 0
         )
         content = self._extract_text(
             getattr(raw_response, "content", []),

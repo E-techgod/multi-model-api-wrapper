@@ -2,11 +2,11 @@
 
 from typing import Any
 
-from src.clients.base import BaseLLMClient
-from src.clients.openai import OpenAIClient
 from src.clients.anthropic import AnthropicClient
+from src.clients.base import BaseLLMClient
 from src.clients.gemini import GeminiClient
 from src.clients.groq import GroqClient
+from src.clients.openai import OpenAIClient
 from src.factory.providers import LLMProvider
 
 
@@ -14,7 +14,12 @@ class ClientFactory:
     """Create provider-specific LLM clients behind a shared interface."""
 
     @staticmethod
-    def create(provider: str | LLMProvider,model: str,api_key: str | None = None,**kwargs: Any) -> BaseLLMClient:
+    def create(
+        provider: str | LLMProvider,
+        model: str,
+        api_key: str | None = None,
+        **kwargs: Any,
+    ) -> BaseLLMClient:
         """
         Create an LLM client for the requested provider.
 
@@ -36,9 +41,7 @@ class ClientFactory:
             ValueError:
                 If the provider is empty, invalid, or unsupported.
         """
-        normalized_provider = ClientFactory._normalize_provider(
-            provider
-        )
+        normalized_provider = ClientFactory._normalize_provider(provider)
 
         if normalized_provider == LLMProvider.OPENAI:
             return OpenAIClient(
@@ -68,9 +71,7 @@ class ClientFactory:
                 **kwargs,
             )
 
-        raise ValueError(
-            f"Unsupported LLM provider: {provider!r}"
-        )
+        raise ValueError(f"Unsupported LLM provider: {provider!r}")
 
     @staticmethod
     def _normalize_provider(provider: str | LLMProvider) -> LLMProvider:
@@ -80,9 +81,7 @@ class ClientFactory:
             return provider
 
         if not isinstance(provider, str):
-            raise ValueError(
-                "Provider must be a string or LLMProvider value."
-            )
+            raise TypeError("Provider must be a string or LLMProvider value.")
 
         normalized = provider.strip().lower()
 
@@ -92,9 +91,7 @@ class ClientFactory:
         try:
             return LLMProvider(normalized)
         except ValueError as exc:
-            supported = ", ".join(
-                member.value for member in LLMProvider
-            )
+            supported = ", ".join(member.value for member in LLMProvider)
 
             raise ValueError(
                 f"Unsupported LLM provider: {provider!r}. "
@@ -105,6 +102,4 @@ class ClientFactory:
     def supported_providers() -> tuple[str, ...]:
         """Return all supported provider names."""
 
-        return tuple(
-            provider.value for provider in LLMProvider
-        )
+        return tuple(provider.value for provider in LLMProvider)

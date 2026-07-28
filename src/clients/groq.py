@@ -1,7 +1,8 @@
+import os
 import time
 from collections.abc import Iterator
 from typing import Any
-import os
+
 from groq import Groq
 
 from src.clients.base import BaseLLMClient
@@ -13,7 +14,9 @@ from src.models.stream_event import LLMStreamEvent
 class GroqClient(BaseLLMClient):
     """Groq implementation of the shared LLM client interface."""
 
-    def __init__(self,model: str | None = None, api_key: str | None = None,**kwargs: Any) -> None:
+    def __init__(
+        self, model: str | None = None, api_key: str | None = None, **kwargs: Any
+    ) -> None:
         if api_key is not None and not api_key.strip():
             raise ValueError("api_key cannot be empty")
 
@@ -21,16 +24,13 @@ class GroqClient(BaseLLMClient):
 
         if resolved_api_key is None or not resolved_api_key.strip():
             raise ValueError(
-                "Groq API key was not provided and "
-                "GROQ_API_KEY is not set"
+                "Groq API key was not provided and " "GROQ_API_KEY is not set"
             )
 
         default_model = kwargs.pop("default_model", None)
 
         if model is not None and default_model is not None:
-            raise ValueError(
-                "Pass either model or default_model, not both"
-            )
+            raise ValueError("Pass either model or default_model, not both")
 
         selected_model = model if model is not None else default_model
 
@@ -130,15 +130,11 @@ class GroqClient(BaseLLMClient):
         usage = getattr(raw_response, "usage", None)
 
         input_tokens = (
-            getattr(usage, "prompt_tokens", 0) or 0
-            if usage is not None
-            else 0
+            getattr(usage, "prompt_tokens", 0) or 0 if usage is not None else 0
         )
 
         output_tokens = (
-            getattr(usage, "completion_tokens", 0) or 0
-            if usage is not None
-            else 0
+            getattr(usage, "completion_tokens", 0) or 0 if usage is not None else 0
         )
 
         total_tokens = (

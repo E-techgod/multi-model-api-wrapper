@@ -85,9 +85,7 @@ def test_generate_streams_deltas_and_final_response(
     assert response.finish_reason == "STOP"
     assert response.response_id == "response-123"
 
-    call_kwargs = (
-        mock_sdk_client.models.generate_content_stream.call_args.kwargs
-    )
+    call_kwargs = mock_sdk_client.models.generate_content_stream.call_args.kwargs
     config = call_kwargs["config"]
 
     assert call_kwargs["model"] == "test-model"
@@ -185,10 +183,7 @@ def test_generate_normalizes_provider_rate_limit_errors(
 def test_rejects_missing_api_key() -> None:
     with pytest.raises(
         ValueError,
-        match=(
-            "Gemini API key was not provided and "
-            "GEMINI_API_KEY is not set"
-        ),
+        match=("Gemini API key was not provided and " "GEMINI_API_KEY is not set"),
     ):
         GeminiClient(default_model="test-model")
 

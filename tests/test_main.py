@@ -20,7 +20,15 @@ def test_parse_args_required_flags(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_parse_args_long_flags(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "sys.argv",
-        ["main.py", "--provider", "anthropic", "--prompt", "hi", "--model", "claude-haiku-4-5-20251001"],
+        [
+            "main.py",
+            "--provider",
+            "anthropic",
+            "--prompt",
+            "hi",
+            "--model",
+            "claude-haiku-4-5-20251001",
+        ],
     )
 
     args = main.parse_args()
@@ -33,7 +41,15 @@ def test_parse_args_long_flags(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_parse_args_optional_model_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "sys.argv",
-        ["main.py", "-provider", "groq", "-model", "openai/gpt-oss-20b", "-prompt", "hi"],
+        [
+            "main.py",
+            "-provider",
+            "groq",
+            "-model",
+            "openai/gpt-oss-20b",
+            "-prompt",
+            "hi",
+        ],
     )
 
     args = main.parse_args()
@@ -43,7 +59,9 @@ def test_parse_args_optional_model_flag(monkeypatch: pytest.MonkeyPatch) -> None
     assert args.prompt == "hi"
 
 
-def test_parse_args_rejects_unsupported_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_parse_args_rejects_unsupported_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         "sys.argv",
         ["main.py", "-provider", "not-a-real-provider", "-prompt", "hi"],
@@ -54,7 +72,9 @@ def test_parse_args_rejects_unsupported_provider(monkeypatch: pytest.MonkeyPatch
 
 
 @pytest.mark.parametrize("missing_flags", [["-prompt", "hi"], ["-provider", "openai"]])
-def test_parse_args_requires_provider_and_prompt(monkeypatch: pytest.MonkeyPatch, missing_flags: list[str]) -> None:
+def test_parse_args_requires_provider_and_prompt(
+    monkeypatch: pytest.MonkeyPatch, missing_flags: list[str]
+) -> None:
     monkeypatch.setattr("sys.argv", ["main.py", *missing_flags])
 
     with pytest.raises(SystemExit):

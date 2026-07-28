@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from typing import Self
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,7 +19,7 @@ class FakeAnthropicStream:
         self._final_message = final_message
         self.request_id = request_id
 
-    def __enter__(self) -> "FakeAnthropicStream":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, exc_type, exc, exc_tb) -> None:
@@ -150,8 +151,7 @@ def test_rejects_missing_api_key() -> None:
     with pytest.raises(
         ValueError,
         match=(
-            "Anthropic API key was not provided and "
-            "ANTHROPIC_API_KEY is not set"
+            "Anthropic API key was not provided and " "ANTHROPIC_API_KEY is not set"
         ),
     ):
         AnthropicClient(default_model="test-model")

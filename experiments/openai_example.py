@@ -15,26 +15,30 @@ import time
 import openai
 from dotenv import load_dotenv
 from openai import OpenAI
+
 from src.models.model_response import ModelResponse
+
 
 def generate_response(client: OpenAI, model: str, prompt: str) -> None:
     """Send one OpenAI request and print its response metadata."""
 
-    start_time= time.perf_counter()
+    start_time = time.perf_counter()
 
     try:
-        response=client.responses.create(
-            model= model,
+        response = client.responses.create(
+            model=model,
             input=prompt,
             max_output_tokens=-1,
         )
 
-    except openai.AuthenticationError as error: # has to do with the key
+    except openai.AuthenticationError as error:  # has to do with the key
         print("\nAuthentication error")
         print("The API key is missing, invalid, expired, or rejected.")
         print_error_details(error)
 
-    except openai.PermissionDeniedError as error: # Key is valid but does not have permission to access the model
+    except (
+        openai.PermissionDeniedError
+    ) as error:  # Key is valid but does not have permission to access the model
         print("\nPermission denied")
         print(
             "The API key is valid, but it does not have permission "
@@ -42,23 +46,25 @@ def generate_response(client: OpenAI, model: str, prompt: str) -> None:
         )
         print_error_details(error)
 
-    except openai.NotFoundError as error: # key is valid and with permission but cannot be found
+    except (
+        openai.NotFoundError
+    ) as error:  # key is valid and with permission but cannot be found
         print("\nResource not found")
         print(
-            "The requested model, endpoint, project, or resource "
-            "could not be found."
+            "The requested model, endpoint, project, or resource " "could not be found."
         )
         print_error_details(error)
 
-    except openai.BadRequestError as error: # Key reached openai but parameters were invalid
+    except (
+        openai.BadRequestError
+    ) as error:  # Key reached openai but parameters were invalid
         print("\nInvalid request")
-        print(
-            "The request reached OpenAI, but one or more parameters "
-            "were invalid."
-        )
+        print("The request reached OpenAI, but one or more parameters " "were invalid.")
         print_error_details(error)
 
-    except openai.UnprocessableEntityError as error: # All good but the request cannot be processed
+    except (
+        openai.UnprocessableEntityError
+    ) as error:  # All good but the request cannot be processed
         print("\nUnprocessable request")
         print(
             "The request was understood but could not be processed "
@@ -66,28 +72,24 @@ def generate_response(client: OpenAI, model: str, prompt: str) -> None:
         )
         print_error_details(error)
 
-    except openai.ConflictError as error: # Something happend and there was a conflict 
+    except openai.ConflictError as error:  # Something happend and there was a conflict
         print("\nConflict error")
-        print(
-            "The request conflicts with the current state "
-            "of the resource."
-        )
+        print("The request conflicts with the current state " "of the resource.")
         print_error_details(error)
 
-    except openai.RateLimitError as error: # Token limit were completed
+    except openai.RateLimitError as error:  # Token limit were completed
         print("\nRate-limit error")
-        print(
-            "The request exceeded a rate limit or the account's "
-            "available quota."
-        )
+        print("The request exceeded a rate limit or the account's " "available quota.")
         print_error_details(error)
 
-    except openai.APITimeoutError as error: # Request took too much time
+    except openai.APITimeoutError as error:  # Request took too much time
         print("\nTimeout error")
         print("The request did not finish before the configured timeout.")
         print_connection_error_details(error)
 
-    except openai.APIConnectionError as error: # Client could not communicate with server
+    except (
+        openai.APIConnectionError
+    ) as error:  # Client could not communicate with server
         print("\nConnection error")
         print(
             "The client could not communicate with OpenAI. "
@@ -95,7 +97,7 @@ def generate_response(client: OpenAI, model: str, prompt: str) -> None:
         )
         print_connection_error_details(error)
 
-    except openai.InternalServerError as error: # Server failed
+    except openai.InternalServerError as error:  # Server failed
         print("\nOpenAI server error")
         print(
             "OpenAI returned a temporary server-side failure. "
@@ -103,7 +105,7 @@ def generate_response(client: OpenAI, model: str, prompt: str) -> None:
         )
         print_error_details(error)
 
-    except openai.APIStatusError as error: # 
+    except openai.APIStatusError as error:
         print("\nUnexpected OpenAI API status error")
         print(
             "OpenAI returned a non-success HTTP response that was not "
@@ -111,17 +113,16 @@ def generate_response(client: OpenAI, model: str, prompt: str) -> None:
         )
         print_error_details(error)
 
-    except openai.OpenAIError as error: # General error
+    except openai.OpenAIError as error:  # General error
         print("\nGeneral OpenAI SDK error")
         print(
-            "The SDK raised an OpenAI-related error that was not "
-            "classified above."
+            "The SDK raised an OpenAI-related error that was not " "classified above."
         )
         print(f"Error type: {type(error).__name__}")
         print(f"Message: {error}")
 
     else:
-        latency_second= time.perf_counter() - start_time
+        latency_second = time.perf_counter() - start_time
         print_success(response, model, latency_second)
 
 
@@ -149,6 +150,7 @@ def print_connection_error_details(error: openai.APIConnectionError) -> None:
     if error.__cause__ is not None:
         print(f"Underlying cause: {error.__cause__}")
 
+
 def print_success(response: object, model: str, latency_seconds: float) -> None:
     """Print a successful OpenAI response."""
 
@@ -159,8 +161,10 @@ def print_success(response: object, model: str, latency_seconds: float) -> None:
     print("Provider: Groq")
     print(f"Model requested: {model}")
     print(f"Response type: {type(response).__name__}")
-    print(f"Response ID: {response.id}") #  Identifier for the generated API response.
-    print(f"Request ID: {response._request_id}") # Identifier from the underlying HTTP request.Useful for debugging API problems.
+    print(f"Response ID: {response.id}")  #  Identifier for the generated API response.
+    print(
+        f"Request ID: {response._request_id}"
+    )  # Identifier from the underlying HTTP request.Useful for debugging API problems.
     print(f"Status: {response.status}")
     print(f"Latency: {latency_seconds:.3f} seconds")
 
@@ -169,10 +173,11 @@ def print_success(response: object, model: str, latency_seconds: float) -> None:
     if response.usage is None:
         print("Token usage was not returned.")
         return
-    
+
     print(f"Input tokens: {response.usage.input_tokens}")
     print(f"Output tokens: {response.usage.output_tokens}")
     print(f"Total tokens: {response.usage.total_tokens}")
+
 
 def normalize_openai_response(response, latency_seconds: float) -> ModelResponse:
     usage = response.usage
@@ -195,6 +200,7 @@ def normalize_openai_response(response, latency_seconds: float) -> ModelResponse
         raw_response=response,
     )
 
+
 def print_model_response(response: ModelResponse) -> None:
     print("\n--- Generated content ---")
     print(response.content)
@@ -212,16 +218,21 @@ def print_model_response(response: ModelResponse) -> None:
     print(f"Output tokens: {response.output_tokens}")
     print(f"Total tokens: {response.total_tokens}")
 
+
 def main() -> None:
     load_dotenv()
 
-    api_key= os.getenv("OPENAI_API_KEY")
-    model= os.getenv("OPENAI_MODEL", "gpt-4o-mini-2024-07-18") #gpt-4o-mini-2024-07-18
+    api_key = os.getenv("OPENAI_API_KEY")
+    model = os.getenv(
+        "OPENAI_MODEL", "gpt-4o-mini-2024-07-18"
+    )  # gpt-4o-mini-2024-07-18
 
     if not api_key:
-        raise ValueError("OpenAI API key is misisng. Add it to your .env file before runing script")
+        raise ValueError(
+            "OpenAI API key is misisng. Add it to your .env file before runing script"
+        )
 
-    client= OpenAI(api_key=api_key)
+    client = OpenAI(api_key=api_key)
 
     prompt = (
         "Explain the difference between semantic search and keyword search "
@@ -229,6 +240,7 @@ def main() -> None:
     )
 
     generate_response(client=client, model=model, prompt=prompt)
+
 
 if __name__ == "__main__":
     main()

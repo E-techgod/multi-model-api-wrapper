@@ -7,6 +7,7 @@ import pytest
 from src.pricing.cost_calculator import calculate_usage_cost
 from src.pricing.model_pricing import ModelPricing
 
+
 def test_calculate_usage_cost() -> None:
     pricing = ModelPricing(
         input_per_million=Decimal("1.00"),
@@ -23,6 +24,7 @@ def test_calculate_usage_cost() -> None:
     assert result.output_cost == Decimal("0.500")
     assert result.total_cost == Decimal("1.000")
 
+
 def test_calculate_usage_cost_with_zero_tokens() -> None:
     pricing = ModelPricing(
         input_per_million=Decimal("1.00"),
@@ -35,9 +37,10 @@ def test_calculate_usage_cost_with_zero_tokens() -> None:
         pricing=pricing,
     )
 
-    assert result.input_cost == Decimal("0")
-    assert result.output_cost == Decimal("0")
-    assert result.total_cost == Decimal("0")
+    assert result.input_cost == Decimal(0)
+    assert result.output_cost == Decimal(0)
+    assert result.total_cost == Decimal(0)
+
 
 def test_rejects_negative_input_tokens() -> None:
     pricing = ModelPricing(
@@ -54,6 +57,7 @@ def test_rejects_negative_input_tokens() -> None:
             output_tokens=10,
             pricing=pricing,
         )
+
 
 def test_rejects_negative_output_tokens() -> None:
     pricing = ModelPricing(

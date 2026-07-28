@@ -15,6 +15,7 @@ import time
 import anthropic
 from anthropic import Anthropic
 from dotenv import load_dotenv
+
 from src.models.model_response import ModelResponse
 
 
@@ -35,7 +36,9 @@ def generate_response(client: Anthropic, model: str, prompt: str) -> None:
         print("The API key is missing, invalid, expired, or rejected.")
         print_error_details(error)
 
-    except anthropic.PermissionDeniedError as error:  # Key is valid but does not have permission to access the model
+    except (
+        anthropic.PermissionDeniedError
+    ) as error:  # Key is valid but does not have permission to access the model
         print("\nPermission denied")
         print(
             "The API key is valid, but it does not have permission "
@@ -43,31 +46,36 @@ def generate_response(client: Anthropic, model: str, prompt: str) -> None:
         )
         print_error_details(error)
 
-    except anthropic.NotFoundError as error:  # key is valid and with permission but cannot be found
+    except (
+        anthropic.NotFoundError
+    ) as error:  # key is valid and with permission but cannot be found
         print("\nResource not found")
         print(
-            "The requested model, endpoint, project, or resource "
-            "could not be found."
+            "The requested model, endpoint, project, or resource " "could not be found."
         )
         print_error_details(error)
 
-    except anthropic.BadRequestError as error:  # Key reached Anthropic but parameters were invalid
+    except (
+        anthropic.BadRequestError
+    ) as error:  # Key reached Anthropic but parameters were invalid
         print("\nInvalid request")
         print(
-            "The request reached Anthropic, but one or more parameters "
-            "were invalid."
+            "The request reached Anthropic, but one or more parameters " "were invalid."
         )
         print_error_details(error)
 
-    except anthropic.RequestTooLargeError as error:  # Request body exceeded the size limit
+    except (
+        anthropic.RequestTooLargeError
+    ) as error:  # Request body exceeded the size limit
         print("\nRequest too large")
         print(
-            "The request body exceeded the maximum allowed size for "
-            "this endpoint."
+            "The request body exceeded the maximum allowed size for " "this endpoint."
         )
         print_error_details(error)
 
-    except anthropic.UnprocessableEntityError as error:  # All good but the request cannot be processed
+    except (
+        anthropic.UnprocessableEntityError
+    ) as error:  # All good but the request cannot be processed
         print("\nUnprocessable request")
         print(
             "The request was understood but could not be processed "
@@ -75,23 +83,21 @@ def generate_response(client: Anthropic, model: str, prompt: str) -> None:
         )
         print_error_details(error)
 
-    except anthropic.ConflictError as error:  # Something happened and there was a conflict
+    except (
+        anthropic.ConflictError
+    ) as error:  # Something happened and there was a conflict
         print("\nConflict error")
-        print(
-            "The request conflicts with the current state "
-            "of the resource."
-        )
+        print("The request conflicts with the current state " "of the resource.")
         print_error_details(error)
 
     except anthropic.RateLimitError as error:  # Token or request limits were exceeded
         print("\nRate-limit error")
-        print(
-            "The request exceeded a rate limit or the account's "
-            "available quota."
-        )
+        print("The request exceeded a rate limit or the account's " "available quota.")
         print_error_details(error)
 
-    except anthropic.OverloadedError as error:  # Anthropic-specific: API is temporarily overloaded
+    except (
+        anthropic.OverloadedError
+    ) as error:  # Anthropic-specific: API is temporarily overloaded
         print("\nOverloaded error")
         print(
             "Anthropic's API is temporarily overloaded. "
@@ -104,7 +110,9 @@ def generate_response(client: Anthropic, model: str, prompt: str) -> None:
         print("The request did not finish before the configured timeout.")
         print_connection_error_details(error)
 
-    except anthropic.APIConnectionError as error:  # Client could not communicate with server
+    except (
+        anthropic.APIConnectionError
+    ) as error:  # Client could not communicate with server
         print("\nConnection error")
         print(
             "The client could not communicate with Anthropic. "
@@ -120,7 +128,7 @@ def generate_response(client: Anthropic, model: str, prompt: str) -> None:
         )
         print_error_details(error)
 
-    except anthropic.APIStatusError as error:  #
+    except anthropic.APIStatusError as error:
         print("\nUnexpected Anthropic API status error")
         print(
             "Anthropic returned a non-success HTTP response that was not "
@@ -179,7 +187,9 @@ def print_success(response: object, model: str, latency_seconds: float) -> None:
     print(f"Model requested: {model}")
     print(f"Response type: {type(response).__name__}")
     print(f"Response ID: {response.id}")  # Identifier for the generated message.
-    print(f"Request ID: {response._request_id}")  # Identifier from the underlying HTTP request. Useful for debugging API problems.
+    print(
+        f"Request ID: {response._request_id}"
+    )  # Identifier from the underlying HTTP request. Useful for debugging API problems.
     print(f"Stop reason: {response.stop_reason}")
     print(f"Latency: {latency_seconds:.3f} seconds")
 
@@ -193,7 +203,10 @@ def print_success(response: object, model: str, latency_seconds: float) -> None:
     output_tokens = response.usage.output_tokens
     print(f"Input tokens: {input_tokens}")
     print(f"Output tokens: {output_tokens}")
-    print(f"Total tokens: {input_tokens + output_tokens}")  # Anthropic doesn't return a combined total
+    print(
+        f"Total tokens: {input_tokens + output_tokens}"
+    )  # Anthropic doesn't return a combined total
+
 
 def extract_anthropic_text(response) -> str:
     text_parts = []
@@ -205,6 +218,7 @@ def extract_anthropic_text(response) -> str:
             text_parts.append(text)
 
     return "".join(text_parts)
+
 
 def normalize_anthropic_response(response, latency_seconds: float) -> ModelResponse:
     input_tokens = response.usage.input_tokens
@@ -223,6 +237,7 @@ def normalize_anthropic_response(response, latency_seconds: float) -> ModelRespo
         raw_response=response,
     )
 
+
 def print_model_response(response: ModelResponse) -> None:
     print("\n--- Generated content ---")
     print(response.content)
@@ -240,14 +255,19 @@ def print_model_response(response: ModelResponse) -> None:
     print(f"Output tokens: {response.output_tokens}")
     print(f"Total tokens: {response.total_tokens}")
 
+
 def main() -> None:
     load_dotenv()
 
     api_key = os.getenv("ANTHROPIC_API_KEY")
-    model = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")  # claude-haiku-4-5-20251001
+    model = os.getenv(
+        "ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"
+    )  # claude-haiku-4-5-20251001
 
     if not api_key:
-        raise ValueError("Anthropic API key is missing. Add it to your .env file before running script")
+        raise ValueError(
+            "Anthropic API key is missing. Add it to your .env file before running script"
+        )
 
     client = Anthropic(api_key=api_key)
 

@@ -32,7 +32,7 @@ def test_model_response_stores_normalized_data() -> None:
 )
 def test_model_response_rejects_negative_values(
     field_name: str,
-    invalid_value: int | float,
+    invalid_value: float,
 ) -> None:
     values = {
         "provider": "openai",

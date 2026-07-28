@@ -1,8 +1,10 @@
 from dataclasses import dataclass
-from typing import Any
 from decimal import Decimal
+from typing import Any
+
 from src.pricing.cost_calculator import calculate_usage_cost
 from src.pricing.pricing_registry import PricingRegistry
+
 
 @dataclass
 class ModelResponse:

@@ -1,15 +1,17 @@
 # tests/test_client_factory.py
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 from src.clients.anthropic import AnthropicClient
 from src.clients.gemini import GeminiClient
 from src.clients.groq import GroqClient
 from src.clients.openai import OpenAIClient
-from src.factory.client_factory import ClientFactory
-from src.factory.providers import LLMProvider
 from src.config.client_builder import build_llm_client
 from src.config.settings import LLMSettings
+from src.factory.client_factory import ClientFactory
+from src.factory.providers import LLMProvider
+
 
 def test_create_openai_client() -> None:
     client = ClientFactory.create(
@@ -19,6 +21,7 @@ def test_create_openai_client() -> None:
     )
 
     assert isinstance(client, OpenAIClient)
+
 
 def test_create_anthropic_client() -> None:
     client = ClientFactory.create(
@@ -39,6 +42,7 @@ def test_create_gemini_client() -> None:
 
     assert isinstance(client, GeminiClient)
 
+
 def test_create_groq_client() -> None:
     client = ClientFactory.create(
         provider="groq",
@@ -47,6 +51,7 @@ def test_create_groq_client() -> None:
     )
 
     assert isinstance(client, GroqClient)
+
 
 def test_create_client_accepts_provider_enum() -> None:
     client = ClientFactory.create(
@@ -57,6 +62,7 @@ def test_create_client_accepts_provider_enum() -> None:
 
     assert isinstance(client, OpenAIClient)
 
+
 def test_create_client_normalizes_provider_name() -> None:
     client = ClientFactory.create(
         provider="  OPENAI  ",
@@ -65,6 +71,7 @@ def test_create_client_normalizes_provider_name() -> None:
     )
 
     assert isinstance(client, OpenAIClient)
+
 
 def test_create_client_rejects_unsupported_provider() -> None:
     with pytest.raises(
@@ -77,6 +84,7 @@ def test_create_client_rejects_unsupported_provider() -> None:
             api_key="test-key",
         )
 
+
 def test_create_client_rejects_empty_provider() -> None:
     with pytest.raises(
         ValueError,
@@ -87,6 +95,7 @@ def test_create_client_rejects_empty_provider() -> None:
             model="some-model",
             api_key="test-key",
         )
+
 
 def test_supported_providers() -> None:
     assert ClientFactory.supported_providers() == (
@@ -112,8 +121,9 @@ def test_factory_selects_openai_client(
         api_key="test-key",
     )
 
+
 @patch("src.factory.client_factory.OpenAIClient")
-def test_create_openai_client(mock_openai_client) -> None:
+def test_create_openai_client_with_mock(mock_openai_client) -> None:
     mock_instance = mock_openai_client.return_value
 
     result = ClientFactory.create(
@@ -128,8 +138,9 @@ def test_create_openai_client(mock_openai_client) -> None:
     )
     assert result is mock_instance
 
+
 @patch("src.factory.client_factory.AnthropicClient")
-def test_create_anthropic_client(mock_anthropic_client) -> None:
+def test_create_anthropic_client_with_mock(mock_anthropic_client) -> None:
     mock_instance = mock_anthropic_client.return_value
 
     result = ClientFactory.create(
@@ -144,8 +155,9 @@ def test_create_anthropic_client(mock_anthropic_client) -> None:
     )
     assert result is mock_instance
 
+
 @patch("src.factory.client_factory.GeminiClient")
-def test_create_gemini_client(mock_gemini_client) -> None:
+def test_create_gemini_client_with_mock(mock_gemini_client) -> None:
     mock_instance = mock_gemini_client.return_value
 
     result = ClientFactory.create(
@@ -160,8 +172,9 @@ def test_create_gemini_client(mock_gemini_client) -> None:
     )
     assert result is mock_instance
 
+
 @patch("src.factory.client_factory.GroqClient")
-def test_create_groq_client(mock_groq_client) -> None:
+def test_create_groq_client_with_mock(mock_groq_client) -> None:
     mock_instance = mock_groq_client.return_value
 
     result = ClientFactory.create(
@@ -196,6 +209,7 @@ def test_create_forwards_optional_arguments(
         max_retries=3,
     )
 
+
 @patch("src.factory.client_factory.OpenAIClient")
 def test_create_normalizes_provider_string(
     mock_openai_client,
@@ -210,6 +224,7 @@ def test_create_normalizes_provider_string(
         model="gpt-test",
         api_key="test-key",
     )
+
 
 @patch("src.factory.client_factory.AnthropicClient")
 def test_create_accepts_provider_enum(
@@ -226,6 +241,7 @@ def test_create_accepts_provider_enum(
         api_key="test-key",
     )
 
+
 def test_create_rejects_empty_provider() -> None:
     with pytest.raises(
         ValueError,
@@ -236,6 +252,7 @@ def test_create_rejects_empty_provider() -> None:
             model="test-model",
             api_key="test-key",
         )
+
 
 def test_create_rejects_unsupported_provider() -> None:
     with pytest.raises(
@@ -248,6 +265,7 @@ def test_create_rejects_unsupported_provider() -> None:
             api_key="test-key",
         )
 
+
 def test_create_rejects_non_string_provider() -> None:
     with pytest.raises(
         ValueError,
@@ -259,13 +277,15 @@ def test_create_rejects_non_string_provider() -> None:
             api_key="test-key",
         )
 
-def test_supported_providers() -> None:
+
+def test_supported_providers_stable_order() -> None:
     assert ClientFactory.supported_providers() == (
         "openai",
         "anthropic",
         "gemini",
         "groq",
     )
+
 
 @patch("src.config.client_builder.ClientFactory.create")
 def test_build_llm_client_uses_settings(

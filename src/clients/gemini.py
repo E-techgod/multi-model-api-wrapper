@@ -1,7 +1,7 @@
+import os
 import time
 from collections.abc import Iterator
 from typing import Any
-import os
 
 from google import genai
 from google.genai import types
@@ -25,16 +25,13 @@ class GeminiClient(BaseLLMClient):
 
         if resolved_api_key is None or not resolved_api_key.strip():
             raise ValueError(
-                "Gemini API key was not provided and "
-                "GEMINI_API_KEY is not set"
+                "Gemini API key was not provided and " "GEMINI_API_KEY is not set"
             )
 
         default_model = kwargs.pop("default_model", None)
 
         if model is not None and default_model is not None:
-            raise ValueError(
-                "Pass either model or default_model, not both"
-            )
+            raise ValueError("Pass either model or default_model, not both")
 
         selected_model = model if model is not None else default_model
 
@@ -126,19 +123,13 @@ class GeminiClient(BaseLLMClient):
         usage = getattr(raw_response, "usage_metadata", None)
 
         input_tokens = (
-            getattr(usage, "prompt_token_count", 0) or 0
-            if usage is not None
-            else 0
+            getattr(usage, "prompt_token_count", 0) or 0 if usage is not None else 0
         )
         output_tokens = (
-            getattr(usage, "candidates_token_count", 0) or 0
-            if usage is not None
-            else 0
+            getattr(usage, "candidates_token_count", 0) or 0 if usage is not None else 0
         )
         total_tokens = (
-            getattr(usage, "total_token_count", 0) or 0
-            if usage is not None
-            else 0
+            getattr(usage, "total_token_count", 0) or 0 if usage is not None else 0
         )
 
         content = "".join(text_parts)
@@ -167,7 +158,7 @@ class GeminiClient(BaseLLMClient):
 
         try:
             return raw_response.text or ""
-        except (AttributeError, ValueError):
+        except AttributeError, ValueError:
             return ""
 
     @staticmethod
@@ -196,25 +187,18 @@ class GeminiClient(BaseLLMClient):
         max_retries = kwargs.pop("max_retries", None)
         http_options = kwargs.pop("http_options", None)
 
-        if (
-            timeout is None
-            and max_retries is None
-            and http_options is None
-        ):
+        if timeout is None and max_retries is None and http_options is None:
             return None
 
         if isinstance(http_options, types.HttpOptions):
-            http_options_data = http_options.model_dump(
-                exclude_none=True
-            )
+            http_options_data = http_options.model_dump(exclude_none=True)
         elif isinstance(http_options, dict):
             http_options_data = dict(http_options)
         elif http_options is None:
             http_options_data = {}
         else:
             raise ValueError(
-                "http_options must be a Gemini HttpOptions "
-                "instance or dict"
+                "http_options must be a Gemini HttpOptions " "instance or dict"
             )
 
         retry_options = http_options_data.get("retry_options")
@@ -225,9 +209,7 @@ class GeminiClient(BaseLLMClient):
             if retry_options is None:
                 retry_options = {}
             elif isinstance(retry_options, types.HttpRetryOptions):
-                retry_options = retry_options.model_dump(
-                    exclude_none=True
-                )
+                retry_options = retry_options.model_dump(exclude_none=True)
             else:
                 retry_options = dict(retry_options)
 

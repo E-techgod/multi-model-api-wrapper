@@ -1,4 +1,3 @@
-from typing import Any
 
 
 class LLMError(Exception):
@@ -118,30 +117,24 @@ def _extract_status_code(exc: Exception) -> int | None:
 
 
 def _is_timeout(exception_name: str, status_code: int | None) -> bool:
-    return (
-        status_code == 408
-        or exception_name in {
-            "APITimeoutError",
-            "Timeout",
-            "TimeoutException",
-            "ReadTimeout",
-            "ConnectTimeout",
-        }
-    )
+    return status_code == 408 or exception_name in {
+        "APITimeoutError",
+        "Timeout",
+        "TimeoutException",
+        "ReadTimeout",
+        "ConnectTimeout",
+    }
 
 
 def _is_authentication_error(
     exception_name: str,
     status_code: int | None,
 ) -> bool:
-    return (
-        status_code in {401, 403}
-        or exception_name in {
-            "AuthenticationError",
-            "PermissionDeniedError",
-            "WorkloadIdentityError",
-        }
-    )
+    return status_code in {401, 403} or exception_name in {
+        "AuthenticationError",
+        "PermissionDeniedError",
+        "WorkloadIdentityError",
+    }
 
 
 def _is_rate_limit_error(
@@ -155,27 +148,21 @@ def _is_invalid_request_error(
     exception_name: str,
     status_code: int | None,
 ) -> bool:
-    return (
-        status_code in {400, 404, 409, 422}
-        or exception_name in {
-            "BadRequestError",
-            "NotFoundError",
-            "ConflictError",
-            "UnprocessableEntityError",
-            "ClientError",
-        }
-    )
+    return status_code in {400, 404, 409, 422} or exception_name in {
+        "BadRequestError",
+        "NotFoundError",
+        "ConflictError",
+        "UnprocessableEntityError",
+        "ClientError",
+    }
 
 
 def _is_provider_unavailable(
     exception_name: str,
     status_code: int | None,
 ) -> bool:
-    return (
-        status_code in {500, 502, 503, 504}
-        or exception_name in {
-            "APIConnectionError",
-            "InternalServerError",
-            "ServerError",
-        }
-    )
+    return status_code in {500, 502, 503, 504} or exception_name in {
+        "APIConnectionError",
+        "InternalServerError",
+        "ServerError",
+    }

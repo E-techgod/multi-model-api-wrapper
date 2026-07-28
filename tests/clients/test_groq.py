@@ -156,10 +156,7 @@ def test_rejects_empty_api_key() -> None:
 def test_rejects_missing_api_key() -> None:
     with pytest.raises(
         ValueError,
-        match=(
-            "Groq API key was not provided and "
-            "GROQ_API_KEY is not set"
-        ),
+        match=("Groq API key was not provided and " "GROQ_API_KEY is not set"),
     ):
         GroqClient(default_model="test-model")
 

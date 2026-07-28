@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 
 from src.clients.openai import OpenAIClient
 
+
 def main() -> None:
     load_dotenv()
 

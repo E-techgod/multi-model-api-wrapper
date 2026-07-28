@@ -3,6 +3,7 @@ import os
 from dataclasses import dataclass
 from typing import Any
 
+
 @dataclass(frozen=True)
 class LLMSettings:
     provider: str
@@ -22,9 +23,7 @@ def get_required_env(name: str) -> str:
     value = os.getenv(name)
 
     if not value or not value.strip():
-        raise ValueError(
-            f"Required environment variable {name!r} is missing."
-        )
+        raise ValueError(f"Required environment variable {name!r} is missing.")
 
     return value.strip()
 

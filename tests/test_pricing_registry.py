@@ -1,11 +1,14 @@
 # tests/pricing/test_pricing_registry.py
 
-import pytest
 from decimal import Decimal
 from unittest.mock import patch
-from src.pricing.pricing_registry import PricingRegistry
+
+import pytest
+
 from src.models.model_response import ModelResponse
 from src.pricing.model_pricing import ModelPricing
+from src.pricing.pricing_registry import PricingRegistry
+
 
 def test_get_returns_none_for_unknown_model() -> None:
     result = PricingRegistry.get(
@@ -14,6 +17,7 @@ def test_get_returns_none_for_unknown_model() -> None:
     )
 
     assert result is None
+
 
 def test_require_rejects_unknown_model() -> None:
     with pytest.raises(
@@ -49,6 +53,7 @@ def test_model_response_calculates_cost_automatically(
     assert response.output_cost == Decimal("0.500")
     assert response.total_cost == Decimal("1.000")
 
+
 @patch("src.models.model_response.PricingRegistry.get")
 def test_model_response_leaves_cost_empty_when_pricing_unknown(
     mock_get,
@@ -68,6 +73,7 @@ def test_model_response_leaves_cost_empty_when_pricing_unknown(
     assert response.input_cost is None
     assert response.output_cost is None
     assert response.total_cost is None
+
 
 @patch("src.models.model_response.PricingRegistry.get")
 def test_model_response_uses_requested_model_for_pricing(

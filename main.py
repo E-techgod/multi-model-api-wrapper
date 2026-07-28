@@ -1,10 +1,11 @@
 import argparse
 
+from dotenv import load_dotenv
+
 from src.config.client_builder import build_llm_client
 from src.config.settings import LLMSettings
 from src.factory.client_factory import ClientFactory
 from src.factory.providers import DEFAULT_MODELS, LLMProvider
-from dotenv import load_dotenv
 
 
 def parse_args() -> argparse.Namespace:

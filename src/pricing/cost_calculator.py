@@ -5,8 +5,7 @@ from decimal import Decimal
 
 from src.pricing.model_pricing import ModelPricing
 
-
-TOKENS_PER_MILLION = Decimal("1000000")
+TOKENS_PER_MILLION = Decimal(1000000)
 
 
 @dataclass(frozen=True)
@@ -16,6 +15,7 @@ class UsageCost:
     input_cost: Decimal
     output_cost: Decimal
     total_cost: Decimal
+
 
 def calculate_usage_cost(
     *,
@@ -31,16 +31,10 @@ def calculate_usage_cost(
     if output_tokens < 0:
         raise ValueError("output_tokens cannot be negative")
 
-    input_cost = (
-        Decimal(input_tokens)
-        / TOKENS_PER_MILLION
-        * pricing.input_per_million
-    )
+    input_cost = Decimal(input_tokens) / TOKENS_PER_MILLION * pricing.input_per_million
 
     output_cost = (
-        Decimal(output_tokens)
-        / TOKENS_PER_MILLION
-        * pricing.output_per_million
+        Decimal(output_tokens) / TOKENS_PER_MILLION * pricing.output_per_million
     )
 
     return UsageCost(

@@ -13,11 +13,7 @@ class ModelPricing:
 
     def __post_init__(self) -> None:
         if self.input_per_million < 0:
-            raise ValueError(
-                "input_per_million cannot be negative"
-            )
+            raise ValueError("input_per_million cannot be negative")
 
         if self.output_per_million < 0:
-            raise ValueError(
-                "output_per_million cannot be negative"
-            )
+            raise ValueError("output_per_million cannot be negative")

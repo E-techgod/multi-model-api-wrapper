@@ -23,6 +23,7 @@ import httpx
 from dotenv import load_dotenv
 from google import genai
 from google.genai import errors
+
 from src.models.model_response import ModelResponse
 
 
@@ -37,7 +38,9 @@ def generate_response(client: genai.Client, model: str, prompt: str) -> None:
             contents=prompt,
         )
 
-    except errors.ClientError as error:  # Any 4xx response; real status is on error.code
+    except (
+        errors.ClientError
+    ) as error:  # Any 4xx response; real status is on error.code
         if error.code == 401:
             print("\nAuthentication error")
             print("The API key is missing, invalid, expired, or rejected.")
@@ -65,24 +68,22 @@ def generate_response(client: genai.Client, model: str, prompt: str) -> None:
 
         elif error.code == 409:
             print("\nConflict error")
-            print(
-                "The request conflicts with the current state "
-                "of the resource."
-            )
+            print("The request conflicts with the current state " "of the resource.")
 
         elif error.code == 429:
             print("\nRate-limit error")
             print(
-                "The request exceeded a rate limit or the account's "
-                "available quota."
+                "The request exceeded a rate limit or the account's " "available quota."
             )
 
         else:
             print("\nUnexpected Gemini client error")
             print(f"Gemini rejected the request with status code {error.code}.")
-        #print_error_details(error)
+        # print_error_details(error)
 
-    except errors.ServerError as error:  # Any 5xx response; real status is on error.code
+    except (
+        errors.ServerError
+    ) as error:  # Any 5xx response; real status is on error.code
         if error.code == 503:
             print("\nGemini server unavailable")
             print(
@@ -100,30 +101,33 @@ def generate_response(client: genai.Client, model: str, prompt: str) -> None:
                 "Gemini returned a temporary server-side failure. "
                 "This request may be safe to retry."
             )
-        #print_error_details(error)
+        # print_error_details(error)
 
-    except (httpx.TimeoutException, httpx.ConnectError) as error:  # Client could not reach the server in time
+    except (
+        httpx.TimeoutException,
+        httpx.ConnectError,
+    ):  # Client could not reach the server in time
         print("\nConnection error")
         print(
             "The client could not communicate with Gemini in time. "
             "Check the network, DNS, proxy, firewall, or API base URL."
         )
-        #print_connection_error_details(error)
+        # print_connection_error_details(error)
 
-    except errors.APIError as error:  # Any other API-level error not covered above
+    except errors.APIError:  # Any other API-level error not covered above
         print("\nUnexpected Gemini API error")
         print(
             "Gemini returned a non-success response that was not "
             "handled by a more specific branch."
         )
-        #print_error_details(error)
+        # print_error_details(error)
 
-    except Exception as error:  # General SDK/client error, e.g. bad config before the request was sent
+    except (
+        ValueError,
+        TypeError,
+    ) as error:  # General SDK/client error, e.g. bad config before the request was sent
         print("\nGeneral Gemini SDK error")
-        print(
-            "The SDK raised a Gemini-related error that was not "
-            "classified above."
-        )
+        print("The SDK raised a Gemini-related error that was not " "classified above.")
         print(f"Error type: {type(error).__name__}")
         print(f"Message: {error}")
 
@@ -163,9 +167,13 @@ def print_success(response: object, model: str, latency_seconds: float) -> None:
     print("Provider: Gemini")
     print(f"Model requested: {model}")
     print(f"Response type: {type(response).__name__}")
-    print(f"Response ID: {response.response_id}")  # Identifier for the generated response.
+    print(
+        f"Response ID: {response.response_id}"
+    )  # Identifier for the generated response.
     print(f"Model version: {response.model_version}")
-    finish_reason = response.candidates[0].finish_reason if response.candidates else None
+    finish_reason = (
+        response.candidates[0].finish_reason if response.candidates else None
+    )
     print(f"Finish reason: {finish_reason}")
     print(f"Latency: {latency_seconds:.3f} seconds")
 
@@ -179,7 +187,10 @@ def print_success(response: object, model: str, latency_seconds: float) -> None:
     print(f"Output tokens: {response.usage_metadata.candidates_token_count}")
     print(f"Total tokens: {response.usage_metadata.total_token_count}")
 
-def normalize_gemini_response(response, model: str,latency_seconds: float) -> ModelResponse:
+
+def normalize_gemini_response(
+    response, model: str, latency_seconds: float
+) -> ModelResponse:
     usage = response.usage_metadata
 
     input_tokens = getattr(usage, "prompt_token_count", 0)
@@ -198,6 +209,7 @@ def normalize_gemini_response(response, model: str,latency_seconds: float) -> Mo
         raw_response=response,
     )
 
+
 def print_model_response(response: ModelResponse) -> None:
     print("\n--- Generated content ---")
     print(response.content)
@@ -215,6 +227,7 @@ def print_model_response(response: ModelResponse) -> None:
     print(f"Output tokens: {response.output_tokens}")
     print(f"Total tokens: {response.total_tokens}")
 
+
 def main() -> None:
     load_dotenv()
 
@@ -222,7 +235,9 @@ def main() -> None:
     model = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")  # gemini-2.5-flash
 
     if not api_key:
-        raise ValueError("Gemini API key is missing. Add it to your .env file before running script")
+        raise ValueError(
+            "Gemini API key is missing. Add it to your .env file before running script"
+        )
 
     client = genai.Client(api_key=api_key)
 
