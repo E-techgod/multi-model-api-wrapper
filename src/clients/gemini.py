@@ -1,0 +1,122 @@
+import time
+from typing import Any
+
+from google import genai
+from google.genai import types
+
+from src.clients.base import BaseLLMClient
+from src.models.model_response import ModelResponse
+
+
+class GeminiClient(BaseLLMClient):
+    """Gemini implementation of the shared LLM client interface."""
+
+    def __init__(
+        self,
+        api_key: str,
+        default_model: str,
+    ) -> None:
+        if not api_key.strip():
+            raise ValueError("api_key cannot be empty")
+
+        if not default_model.strip():
+            raise ValueError("default_model cannot be empty")
+
+        self._client = genai.Client(api_key=api_key)
+        self._default_model = default_model
+
+    @property
+    def provider_name(self) -> str:
+        return "gemini"
+
+    def generate(
+        self,
+        prompt: str,
+        *,
+        model: str | None = None,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> ModelResponse:
+        if not prompt.strip():
+            raise ValueError("prompt cannot be empty")
+
+        if max_tokens is not None and max_tokens <= 0:
+            raise ValueError("max_tokens must be greater than zero")
+
+        selected_model = model or self._default_model
+
+        config_options: dict[str, Any] = {
+            "temperature": temperature,
+        }
+
+        if max_tokens is not None:
+            config_options["max_output_tokens"] = max_tokens
+
+        config = types.GenerateContentConfig(**config_options)
+
+        start_time = time.perf_counter()
+
+        raw_response = self._client.models.generate_content(
+            model=selected_model,
+            contents=prompt,
+            config=config,
+        )
+
+        latency_seconds = time.perf_counter() - start_time
+
+        usage = raw_response.usage_metadata
+
+        input_tokens = (
+            getattr(usage, "prompt_token_count", 0) or 0
+            if usage is not None
+            else 0
+        )
+        output_tokens = (
+            getattr(usage, "candidates_token_count", 0) or 0
+            if usage is not None
+            else 0
+        )
+        total_tokens = (
+            getattr(usage, "total_token_count", 0) or 0
+            if usage is not None
+            else 0
+        )
+
+        return ModelResponse(
+            provider=self.provider_name,
+            model=selected_model,
+            content=self._extract_text(raw_response),
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            total_tokens=total_tokens,
+            latency_seconds=latency_seconds,
+            finish_reason=self._extract_finish_reason(raw_response),
+            response_id=getattr(raw_response, "response_id", None),
+            request_id=None,
+            raw_response=raw_response,
+        )
+
+    @staticmethod
+    def _extract_text(raw_response: Any) -> str:
+        """Extract generated text without assuming response.text always exists."""
+
+        try:
+            return raw_response.text or ""
+        except (AttributeError, ValueError):
+            return ""
+
+    @staticmethod
+    def _extract_finish_reason(raw_response: Any) -> str | None:
+        """Extract the first candidate's finish reason safely."""
+
+        candidates = getattr(raw_response, "candidates", None)
+
+        if not candidates:
+            return None
+
+        finish_reason = getattr(candidates[0], "finish_reason", None)
+
+        if finish_reason is None:
+            return None
+
+        return getattr(finish_reason, "name", str(finish_reason))
