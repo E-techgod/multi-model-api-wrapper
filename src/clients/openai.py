@@ -1,4 +1,5 @@
 import time
+from typing import Any
 
 from openai import OpenAI
 
@@ -9,15 +10,24 @@ from src.models.model_response import ModelResponse
 class OpenAIClient(BaseLLMClient):
     """OpenAI implementation of the shared LLM client interface."""
 
-    def __init__(self,api_key: str,default_model: str) -> None:
-        if not api_key.strip():
+    def __init__(self,model: str | None = None,api_key: str | None = None,**kwargs: Any) -> None:
+        if api_key is None or not api_key.strip():
             raise ValueError("api_key cannot be empty")
 
-        if not default_model.strip():
+        default_model = kwargs.pop("default_model", None)
+
+        if model is not None and default_model is not None:
+            raise ValueError(
+                "Pass either model or default_model, not both"
+            )
+
+        selected_model = model if model is not None else default_model
+
+        if selected_model is None or not selected_model.strip():
             raise ValueError("default_model cannot be empty")
 
-        self._client = OpenAI(api_key=api_key)
-        self._default_model = default_model
+        self._client = OpenAI(api_key=api_key, **kwargs)
+        self._default_model = selected_model
 
     @property
     def provider_name(self) -> str:

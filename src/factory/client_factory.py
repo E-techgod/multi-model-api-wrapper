@@ -1,4 +1,4 @@
-# factory/client_factory.py
+# src/factory/client_factory.py
 
 from typing import Any
 
@@ -7,12 +7,11 @@ from src.clients.openai import OpenAIClient
 from src.clients.anthropic import AnthropicClient
 from src.clients.gemini import GeminiClient
 from src.clients.groq import GroqClient
-
-from factory.providers import LLMProvider
+from src.factory.providers import LLMProvider
 
 
 class ClientFactory:
-    """Creates provider-specific LLM clients behind a shared interface."""
+    """Create provider-specific LLM clients behind a shared interface."""
 
     @staticmethod
     def create(
@@ -26,23 +25,25 @@ class ClientFactory:
 
         Args:
             provider:
-                Provider name or LLMProvider enum value.
+                Provider name or LLMProvider enum member.
             model:
-                Model identifier used by the provider.
+                Provider-specific model identifier.
             api_key:
-                Optional API key. Individual clients may load it from the
-                environment when this value is not provided.
+                Optional API key. The concrete client may load it
+                from an environment variable when omitted.
             **kwargs:
-                Additional provider-specific configuration.
+                Additional configuration passed to the concrete client.
 
         Returns:
-            A concrete implementation of BaseLLMClient.
+            A concrete BaseLLMClient implementation.
 
         Raises:
             ValueError:
-                If the provider is empty or unsupported.
+                If the provider is empty, invalid, or unsupported.
         """
-        normalized_provider = ClientFactory._normalize_provider(provider)
+        normalized_provider = ClientFactory._normalize_provider(
+            provider
+        )
 
         if normalized_provider == LLMProvider.OPENAI:
             return OpenAIClient(
@@ -72,7 +73,6 @@ class ClientFactory:
                 **kwargs,
             )
 
-        # Defensive fallback. _normalize_provider should reject unsupported values.
         raise ValueError(
             f"Unsupported LLM provider: {provider!r}"
         )
@@ -81,7 +81,7 @@ class ClientFactory:
     def _normalize_provider(
         provider: str | LLMProvider,
     ) -> LLMProvider:
-        """Normalize string input into an LLMProvider enum."""
+        """Normalize a provider string into an LLMProvider member."""
 
         if isinstance(provider, LLMProvider):
             return provider
@@ -100,10 +100,18 @@ class ClientFactory:
             return LLMProvider(normalized)
         except ValueError as exc:
             supported = ", ".join(
-                provider.value for provider in LLMProvider
+                member.value for member in LLMProvider
             )
 
             raise ValueError(
                 f"Unsupported LLM provider: {provider!r}. "
                 f"Supported providers: {supported}."
             ) from exc
+
+    @staticmethod
+    def supported_providers() -> tuple[str, ...]:
+        """Return all supported provider names."""
+
+        return tuple(
+            provider.value for provider in LLMProvider
+        )
