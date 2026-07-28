@@ -1,11 +1,45 @@
-# Python Build Artifacts & Bytecode
-graphify-out/
+# Python bytecode
 __pycache__/
-*.pyc
-llm_context_payload.txt
+*.py[cod]
+*$py.class
 
-# Virtual Environments
+# Virtual environments
 .venv/
+venv/
 
-# Environment Variables & Secrets
+# Environment variables and secrets
 .env
+.env.*
+!.env.example
+
+# Python/tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+.tox/
+.nox/
+
+# Coverage output
+.coverage
+.coverage.*
+htmlcov/
+
+# Build/package artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Local Python version files
+.python-version
+
+# macOS / editor files
+.DS_Store
+.vscode/
+.idea/
+
+# Project-specific local artifacts
+graphify-out/
+llm_context_payload.txt
