@@ -1,6 +1,7 @@
 # src/pricing/pricing_registry.py
 
 from decimal import Decimal
+from doctest import Example
 
 from src.pricing.model_pricing import ModelPricing
 
@@ -19,6 +20,15 @@ class PricingRegistry:
         #     input_per_million=Decimal("0.00"),
         #     output_per_million=Decimal("0.00"),
         # ),
+        
+        (
+            "groq",
+            "openai/gpt-oss-20b",
+        ):ModelPricing(
+                input_per_million=Decimal("0.01"),
+                output_per_million=Decimal("0.01"),
+        ),
+
     }
 
     @classmethod
@@ -60,3 +70,5 @@ class PricingRegistry:
             )
 
         return pricing
+
+    # With the updated graph and context reports generated. Fix this failed tests

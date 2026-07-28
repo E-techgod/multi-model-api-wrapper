@@ -7,8 +7,8 @@ def main() -> None:
     load_dotenv()
 
     settings = LLMSettings(
-        provider="gemini",
-        model="gemini-3.1-flash-lite",
+        provider="groq",
+        model="llama-3.1-8b-instant",
     )
 
     client = build_llm_client(settings)
@@ -19,9 +19,19 @@ def main() -> None:
     )
 
     print(response.content)
-    print(response.provider)
-    print(response.model)
-    print(response.usage)
+    print(f"Provider: {response.provider}")
+    print(f"Model: {response.model}")
+
+    print(f"Input tokens: {response.input_tokens}")
+    print(f"Output tokens: {response.output_tokens}")
+    print(f"Total tokens: {response.total_tokens}")
+
+    if response.total_cost is not None:
+        print(f"Input cost: ${response.input_cost:.8f}")
+        print(f"Output cost: ${response.output_cost:.8f}")
+        print(f"Total cost: ${response.total_cost:.8f}")
+    else:
+        print("Cost unavailable: model pricing is not configured.")
 
 
 if __name__ == "__main__":

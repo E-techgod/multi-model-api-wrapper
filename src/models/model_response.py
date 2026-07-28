@@ -1,26 +1,35 @@
 from dataclasses import dataclass
 from typing import Any
+from decimal import Decimal
+from src.pricing.cost_calculator import calculate_usage_cost
+from src.pricing.pricing_registry import PricingRegistry
 
-
-@dataclass(frozen=True)
+@dataclass
 class ModelResponse:
     provider: str
     model: str
     content: str
-
     input_tokens: int
     output_tokens: int
     total_tokens: int
-
     latency_seconds: float
+
+    requested_model: str | None = None
 
     finish_reason: str | None = None
     response_id: str | None = None
     request_id: str | None = None
+    raw_response: Any = None
 
-    raw_response: Any | None = None
+    input_cost: Decimal | None = None
+    output_cost: Decimal | None = None
+    total_cost: Decimal | None = None
 
     def __post_init__(self) -> None:
+        self._validate_usage()
+        self._calculate_costs()
+
+    def _validate_usage(self) -> None:
         if not self.provider.strip():
             raise ValueError("provider cannot be empty")
 
@@ -39,10 +48,23 @@ class ModelResponse:
         if self.latency_seconds < 0:
             raise ValueError("latency_seconds cannot be negative")
 
-    @property
-    def usage(self) -> dict[str, int]:
-        return {
-            "input_tokens": self.input_tokens,
-            "output_tokens": self.output_tokens,
-            "total_tokens": self.total_tokens,
-        }
+    def _calculate_costs(self) -> None:
+        pricing_model = self.requested_model or self.model
+
+        pricing = PricingRegistry.get(
+            provider=self.provider,
+            model=pricing_model,
+        )
+
+        if pricing is None:
+            return
+
+        usage_cost = calculate_usage_cost(
+            input_tokens=self.input_tokens,
+            output_tokens=self.output_tokens,
+            pricing=pricing,
+        )
+
+        self.input_cost = usage_cost.input_cost
+        self.output_cost = usage_cost.output_cost
+        self.total_cost = usage_cost.total_cost
