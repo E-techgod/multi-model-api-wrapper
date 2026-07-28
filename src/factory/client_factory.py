@@ -81,7 +81,7 @@ class ClientFactory:
             return provider
 
         if not isinstance(provider, str):
-            raise TypeError("Provider must be a string or LLMProvider value.")
+            raise ValueError("Provider must be a string or LLMProvider value.")
 
         normalized = provider.strip().lower()
 
