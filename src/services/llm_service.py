@@ -1,0 +1,42 @@
+# src/services/llm_service.py
+
+from src.clients.base import BaseLLMClient
+from src.models.model_response import ModelResponse
+from src.config.client_builder import build_llm_client
+from src.config.settings import load_llm_settings
+from src.services.llm_service import LLMService
+
+
+class LLMService:
+    """Provider-independent LLM execution service."""
+
+    def __init__(self, client: BaseLLMClient) -> None:
+        self.client = client
+
+    def generate(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        **kwargs,
+    ) -> ModelResponse:
+        return self.client.generate(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            **kwargs,
+        )
+    
+def main() -> None:
+    settings = load_llm_settings()
+    client = build_llm_client(settings)
+    llm_service = LLMService(client)
+
+    response = llm_service.generate(
+        system_prompt="You are a helpful assistant.",
+        user_prompt="Explain dependency inversion.",
+    )
+
+    print(response.content)
+
+
+if __name__ == "__main__":
+    main()
