@@ -11,6 +11,9 @@ class GroqClient(BaseLLMClient):
     """Groq implementation of the shared LLM client interface."""
 
     def __init__(self,model: str | None = None, api_key: str | None = None,**kwargs: Any) -> None:
+        if api_key is not None and not api_key.strip():
+            raise ValueError("api_key cannot be empty")
+
         resolved_api_key = api_key or os.getenv("GROQ_API_KEY")
 
         if resolved_api_key is None or not resolved_api_key.strip():

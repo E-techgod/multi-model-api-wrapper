@@ -188,6 +188,8 @@ class GeminiClient(BaseLLMClient):
         retry_options = http_options_data.get("retry_options")
 
         if max_retries is not None:
+            if max_retries < 0:
+                raise ValueError("max_retries cannot be negative")
             if retry_options is None:
                 retry_options = {}
             elif isinstance(retry_options, types.HttpRetryOptions):
@@ -204,6 +206,6 @@ class GeminiClient(BaseLLMClient):
             if timeout <= 0:
                 raise ValueError("timeout must be greater than zero")
 
-            http_options_data["timeout"] = int(timeout * 1000)
+            http_options_data["timeout"] = timeout
 
         return types.HttpOptions(**http_options_data)

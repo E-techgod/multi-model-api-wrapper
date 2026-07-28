@@ -16,6 +16,7 @@ def test_llm_service_uses_injected_client() -> None:
         input_tokens=10,
         output_tokens=5,
         total_tokens=15,
+        latency_seconds=1.0,
     )
 
     mock_client.generate.return_value = expected_response

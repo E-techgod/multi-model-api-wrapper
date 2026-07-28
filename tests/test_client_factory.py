@@ -264,3 +264,4 @@ def test_supported_providers() -> None:
         "gemini",
         "groq",
     )
+
