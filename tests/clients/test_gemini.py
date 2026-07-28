@@ -237,7 +237,7 @@ class TextErrorResponse:
         raise ValueError("No textual candidate")
 
 
-@patch("src.clients.gemini_client.genai.Client")
+@patch("src.clients.gemini.genai.Client")
 def test_generate_handles_text_property_error(
     mock_genai_client_class: MagicMock,
 ) -> None:
