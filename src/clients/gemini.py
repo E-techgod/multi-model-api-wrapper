@@ -7,6 +7,7 @@ from google import genai
 from google.genai import types
 
 from src.clients.base import BaseLLMClient
+from src.errors import normalize_provider_exception
 from src.models.model_response import ModelResponse
 from src.models.stream_event import LLMStreamEvent
 
@@ -90,28 +91,35 @@ class GeminiClient(BaseLLMClient):
         config = types.GenerateContentConfig(**config_options)
 
         start_time = time.perf_counter()
-        raw_stream = self._client.models.generate_content_stream(
-            model=selected_model,
-            contents=user_prompt,
-            config=config,
-        )
         text_parts: list[str] = []
         raw_response: Any = None
 
-        for chunk in raw_stream:
-            raw_response = chunk
-            delta = self._extract_text(chunk)
-
-            if not delta:
-                continue
-
-            text_parts.append(delta)
-
-            yield LLMStreamEvent(
-                type="text_delta",
-                delta=delta,
-                snapshot="".join(text_parts),
+        try:
+            raw_stream = self._client.models.generate_content_stream(
+                model=selected_model,
+                contents=user_prompt,
+                config=config,
             )
+
+            for chunk in raw_stream:
+                raw_response = chunk
+                delta = self._extract_text(chunk)
+
+                if not delta:
+                    continue
+
+                text_parts.append(delta)
+
+                yield LLMStreamEvent(
+                    type="text_delta",
+                    delta=delta,
+                    snapshot="".join(text_parts),
+                )
+        except Exception as exc:
+            raise normalize_provider_exception(
+                self.provider_name,
+                exc,
+            ) from exc
 
         latency_seconds = time.perf_counter() - start_time
 

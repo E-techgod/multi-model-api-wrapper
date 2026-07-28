@@ -6,6 +6,7 @@ import os
 from openai import OpenAI
 
 from src.clients.base import BaseLLMClient
+from src.errors import normalize_provider_exception
 from src.models.model_response import ModelResponse
 from src.models.stream_event import LLMStreamEvent
 
@@ -84,30 +85,36 @@ class OpenAIClient(BaseLLMClient):
         start_time = time.perf_counter()
         text_parts: list[str] = []
 
-        with self._client.responses.stream(
-            **request_options,
-        ) as stream:
-            for event in stream:
-                if (
-                    getattr(event, "type", None)
-                    != "response.output_text.delta"
-                ):
-                    continue
+        try:
+            with self._client.responses.stream(
+                **request_options,
+            ) as stream:
+                for event in stream:
+                    if (
+                        getattr(event, "type", None)
+                        != "response.output_text.delta"
+                    ):
+                        continue
 
-                delta = getattr(event, "delta", "") or ""
+                    delta = getattr(event, "delta", "") or ""
 
-                if not delta:
-                    continue
+                    if not delta:
+                        continue
 
-                text_parts.append(delta)
+                    text_parts.append(delta)
 
-                yield LLMStreamEvent(
-                    type="text_delta",
-                    delta=delta,
-                    snapshot="".join(text_parts),
-                )
+                    yield LLMStreamEvent(
+                        type="text_delta",
+                        delta=delta,
+                        snapshot="".join(text_parts),
+                    )
 
-            raw_response = stream.get_final_response()
+                raw_response = stream.get_final_response()
+        except Exception as exc:
+            raise normalize_provider_exception(
+                self.provider_name,
+                exc,
+            ) from exc
 
         latency_seconds = time.perf_counter() - start_time
         usage = getattr(raw_response, "usage", None)

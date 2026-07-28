@@ -6,6 +6,7 @@ import os
 from anthropic import Anthropic
 
 from src.clients.base import BaseLLMClient
+from src.errors import normalize_provider_exception
 from src.models.model_response import ModelResponse
 from src.models.stream_event import LLMStreamEvent
 
@@ -93,23 +94,29 @@ class AnthropicClient(BaseLLMClient):
 
         text_parts: list[str] = []
 
-        with self._client.messages.stream(
-            **request_options,
-        ) as stream:
-            for delta in stream.text_stream:
-                if not delta:
-                    continue
+        try:
+            with self._client.messages.stream(
+                **request_options,
+            ) as stream:
+                for delta in stream.text_stream:
+                    if not delta:
+                        continue
 
-                text_parts.append(delta)
+                    text_parts.append(delta)
 
-                yield LLMStreamEvent(
-                    type="text_delta",
-                    delta=delta,
-                    snapshot="".join(text_parts),
-                )
+                    yield LLMStreamEvent(
+                        type="text_delta",
+                        delta=delta,
+                        snapshot="".join(text_parts),
+                    )
 
-            raw_response = stream.get_final_message()
-            request_id = getattr(stream, "request_id", None)
+                raw_response = stream.get_final_message()
+                request_id = getattr(stream, "request_id", None)
+        except Exception as exc:
+            raise normalize_provider_exception(
+                self.provider_name,
+                exc,
+            ) from exc
 
         latency_seconds = time.perf_counter() - start_time
         usage = getattr(raw_response, "usage", None)

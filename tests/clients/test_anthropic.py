@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.clients.anthropic import AnthropicClient
+from src.errors import TimeoutError
 
 
 class FakeAnthropicStream:
@@ -122,6 +123,26 @@ def test_generate_handles_missing_usage(
     assert response.input_tokens == 0
     assert response.output_tokens == 0
     assert response.total_tokens == 0
+
+
+@patch("src.clients.anthropic.Anthropic")
+def test_generate_normalizes_provider_timeout_errors(
+    mock_anthropic_class: MagicMock,
+) -> None:
+    mock_sdk_client = mock_anthropic_class.return_value
+    mock_sdk_client.messages.stream.side_effect = type(
+        "APITimeoutError",
+        (Exception,),
+        {},
+    )("request timed out")
+
+    client = AnthropicClient(
+        api_key="test-key",
+        default_model="test-model",
+    )
+
+    with pytest.raises(TimeoutError, match="request timed out"):
+        list(client.generate("Test prompt"))
 
 
 @patch.dict("os.environ", {}, clear=True)

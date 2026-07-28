@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.clients.groq import GroqClient
+from src.errors import ProviderUnavailableError
 
 
 def create_fake_groq_chunk(
@@ -118,6 +119,29 @@ def test_generate_handles_missing_usage(
     assert response.input_tokens == 0
     assert response.output_tokens == 0
     assert response.total_tokens == 0
+
+
+@patch("src.clients.groq.Groq")
+def test_generate_normalizes_provider_availability_errors(
+    mock_groq_class: MagicMock,
+) -> None:
+    mock_sdk_client = mock_groq_class.return_value
+    mock_sdk_client.chat.completions.create.side_effect = type(
+        "APIConnectionError",
+        (Exception,),
+        {},
+    )("connection failed")
+
+    client = GroqClient(
+        api_key="test-key",
+        default_model="test-model",
+    )
+
+    with pytest.raises(
+        ProviderUnavailableError,
+        match="connection failed",
+    ):
+        list(client.generate("Test prompt"))
 
 
 def test_rejects_empty_api_key() -> None:

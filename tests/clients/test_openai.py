@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.clients.openai import OpenAIClient
+from src.errors import RateLimitError
 
 
 class FakeOpenAIStream:
@@ -147,6 +148,26 @@ def test_generate_handles_missing_usage(
     assert response.input_tokens == 0
     assert response.output_tokens == 0
     assert response.total_tokens == 0
+
+
+@patch("src.clients.openai.OpenAI")
+def test_generate_normalizes_provider_rate_limit_errors(
+    mock_openai_class: MagicMock,
+) -> None:
+    mock_sdk_client = mock_openai_class.return_value
+    mock_sdk_client.responses.stream.side_effect = type(
+        "RateLimitError",
+        (Exception,),
+        {},
+    )("too many requests")
+
+    client = OpenAIClient(
+        api_key="test-key",
+        default_model="test-model",
+    )
+
+    with pytest.raises(RateLimitError, match="too many requests"):
+        list(client.generate("Test prompt"))
 
 
 @patch.dict("os.environ", {}, clear=True)

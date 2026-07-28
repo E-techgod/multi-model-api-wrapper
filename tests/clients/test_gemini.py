@@ -5,6 +5,7 @@ import pytest
 from google.genai import types
 
 from src.clients.gemini import GeminiClient
+from src.errors import RateLimitError
 
 
 def create_fake_gemini_chunk(
@@ -158,6 +159,26 @@ def test_generate_handles_missing_usage(
     assert response.input_tokens == 0
     assert response.output_tokens == 0
     assert response.total_tokens == 0
+
+
+@patch("src.clients.gemini.genai.Client")
+def test_generate_normalizes_provider_rate_limit_errors(
+    mock_genai_client_class: MagicMock,
+) -> None:
+    mock_sdk_client = mock_genai_client_class.return_value
+    mock_sdk_client.models.generate_content_stream.side_effect = type(
+        "APIError",
+        (Exception,),
+        {"code": 429},
+    )("too many requests")
+
+    client = GeminiClient(
+        api_key="test-key",
+        default_model="test-model",
+    )
+
+    with pytest.raises(RateLimitError, match="too many requests"):
+        list(client.generate("Test prompt"))
 
 
 @patch.dict("os.environ", {}, clear=True)
