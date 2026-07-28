@@ -215,8 +215,9 @@ API" reference.
 
 ## Tests
 
-76 tests collected (42 test functions, some parametrized) across the four
-clients, `ModelResponse`, `ClientFactory`, pricing, and error normalization:
+82 tests collected (47 test functions, some parametrized) across the four
+clients, `ModelResponse`, `ClientFactory`, pricing, error normalization, and
+`main.py`'s CLI argument parsing:
 
 ```bash
 uv run pytest -q
@@ -239,6 +240,8 @@ uv run pytest -q
 - No retry/backoff logic lives in this wrapper. `max_retries` is only
   forwarded to the underlying provider SDK's own client constructor.
 - All clients are synchronous generators — no async/await path.
-- `LLMSettings`, `build_llm_client()`, `main.py`, and `LLMService`'s `main()`
-  have no dedicated tests; they're only exercised indirectly through the
-  client and factory test suites.
+- `LLMSettings`, `build_llm_client()`, and `LLMService`'s `main()` have no
+  dedicated tests; they're only exercised indirectly through the client and
+  factory test suites. `main.py`'s `parse_args()` is tested
+  (`tests/test_main.py`), but the rest of `main()` (settings construction,
+  client build, streaming/print loop) isn't.

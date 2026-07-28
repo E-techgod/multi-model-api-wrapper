@@ -52,7 +52,7 @@ KEY MODULES
 
 TEST COUNT
 ----------
-- Total: 76 tests collected (`pytest --collect-only -q`), from 42 test functions (some parametrized).
+- Total: 82 tests collected (`pytest --collect-only -q`), from 47 test functions (some parametrized).
 - tests/clients/test_anthropic.py — 8
 - tests/clients/test_gemini.py — 10
 - tests/clients/test_groq.py — 9
@@ -61,6 +61,7 @@ TEST COUNT
 - tests/test_cost_calculator.py — 4
 - tests/test_errors.py — 7
 - tests/test_llm_service.py — 1
+- tests/test_main.py — 6 (main.parse_args(): required -provider/-prompt, optional -model, long flags, unsupported provider, missing required flags)
 - tests/test_model_response.py — 6
 - tests/test_pricing_registry.py — 5
 
