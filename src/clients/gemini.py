@@ -201,6 +201,9 @@ class GeminiClient(BaseLLMClient):
             http_options_data["retry_options"] = retry_options
 
         if timeout is not None:
-            http_options_data["timeout"] = int(timeout)
+            if timeout <= 0:
+                raise ValueError("timeout must be greater than zero")
+
+            http_options_data["timeout"] = int(timeout * 1000)
 
         return types.HttpOptions(**http_options_data)
