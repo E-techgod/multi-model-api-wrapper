@@ -1,21 +1,48 @@
+import argparse
+
 from src.config.client_builder import build_llm_client
 from src.config.settings import LLMSettings
+from src.factory.client_factory import ClientFactory
+from src.factory.providers import DEFAULT_MODELS, LLMProvider
 from dotenv import load_dotenv
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Send a prompt to an LLM provider from the command line."
+    )
+    parser.add_argument(
+        "-provider",
+        "--provider",
+        required=True,
+        choices=ClientFactory.supported_providers(),
+        help="LLM provider to use.",
+    )
+    parser.add_argument(
+        "-model",
+        "--model",
+        required=False,
+        default=None,
+        help="Model ID to use. Defaults to the provider's default model if omitted.",
+    )
+    parser.add_argument(
+        "-prompt",
+        "--prompt",
+        required=True,
+        help="User prompt to send to the model.",
+    )
+    return parser.parse_args()
 
 
 def main() -> None:
     load_dotenv()
 
+    args = parse_args()
+
     settings = LLMSettings(
-        provider="groq",
-        model="llama-3.1-8b-instant", 
+        provider=args.provider,
+        model=args.model or DEFAULT_MODELS[LLMProvider(args.provider)],
     )
-    """
-    groq: llama-3.1-8b-instant or openai/gpt-oss-20b
-    gemini: gemini-3.1-flash-lite
-    openai: pt-4o-mini-2024-07-18
-    anthropic: claude-haiku-4-5-20251001
-    """
 
     client = build_llm_client(settings)
 
@@ -23,7 +50,7 @@ def main() -> None:
 
     for event in client.generate(
         system_prompt="You are a concise assistant.",
-        user_prompt="Explain what dependency injection is in one sentence.",
+        user_prompt=args.prompt,
     ):
         if event.delta:
             print(event.delta, end="", flush=True)
