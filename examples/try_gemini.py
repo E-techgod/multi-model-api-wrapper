@@ -22,7 +22,7 @@ def main() -> None:
         default_model=model,
     )
 
-    response = client.generate(
+    response = client.collect_response(
         user_prompt=(
             "Explain the difference between semantic search and "
             "keyword search in no more than 100 words."

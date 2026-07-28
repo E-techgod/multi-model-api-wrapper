@@ -19,23 +19,34 @@ def main() -> None:
 
     client = build_llm_client(settings)
 
-    response = client.generate(
+    final_response = None
+
+    for event in client.generate(
         system_prompt="You are a concise assistant.",
         user_prompt="Explain what dependency injection is in one sentence.",
-    )
+    ):
+        if event.delta:
+            print(event.delta, end="", flush=True)
 
-    print(response.content)
-    print(f"Provider: {response.provider}")
-    print(f"Model: {response.model}")
+        if event.response is not None:
+            final_response = event.response
 
-    print(f"Input tokens: {response.input_tokens}")
-    print(f"Output tokens: {response.output_tokens}")
-    print(f"Total tokens: {response.total_tokens}")
+    print()
 
-    if response.total_cost is not None:
-        print(f"Input cost: ${response.input_cost:.8f}")
-        print(f"Output cost: ${response.output_cost:.8f}")
-        print(f"Total cost: ${response.total_cost:.8f}")
+    if final_response is None:
+        raise RuntimeError("LLM stream completed without a response")
+
+    print(f"Provider: {final_response.provider}")
+    print(f"Model: {final_response.model}")
+
+    print(f"Input tokens: {final_response.input_tokens}")
+    print(f"Output tokens: {final_response.output_tokens}")
+    print(f"Total tokens: {final_response.total_tokens}")
+
+    if final_response.total_cost is not None:
+        print(f"Input cost: ${final_response.input_cost:.8f}")
+        print(f"Output cost: ${final_response.output_cost:.8f}")
+        print(f"Total cost: ${final_response.total_cost:.8f}")
     else:
         print("Cost unavailable: model pricing is not configured.")
 

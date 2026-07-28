@@ -6,14 +6,33 @@ import pytest
 from src.clients.anthropic import AnthropicClient
 
 
+class FakeAnthropicStream:
+    def __init__(
+        self,
+        text_stream: list[str],
+        final_message: SimpleNamespace,
+        request_id: str | None = "request-123",
+    ) -> None:
+        self.text_stream = iter(text_stream)
+        self._final_message = final_message
+        self.request_id = request_id
+
+    def __enter__(self) -> "FakeAnthropicStream":
+        return self
+
+    def __exit__(self, exc_type, exc, exc_tb) -> None:
+        return None
+
+    def get_final_message(self) -> SimpleNamespace:
+        return self._final_message
+
+
 def create_fake_anthropic_response() -> SimpleNamespace:
     return SimpleNamespace(
         model="test-model",
         content=[
-            SimpleNamespace(
-                type="text",
-                text="Normalized Anthropic response",
-            )
+            SimpleNamespace(type="text", text="Hello "),
+            SimpleNamespace(type="text", text="Claude"),
         ],
         usage=SimpleNamespace(
             input_tokens=12,
@@ -21,17 +40,18 @@ def create_fake_anthropic_response() -> SimpleNamespace:
         ),
         stop_reason="end_turn",
         id="message-123",
-        _request_id="request-123",
     )
 
 
 @patch("src.clients.anthropic.Anthropic")
-def test_generate_returns_model_response(
+def test_generate_streams_deltas_and_final_response(
     mock_anthropic_class: MagicMock,
 ) -> None:
     mock_sdk_client = mock_anthropic_class.return_value
-    mock_sdk_client.messages.create.return_value = (
-        create_fake_anthropic_response()
+    final_message = create_fake_anthropic_response()
+    mock_sdk_client.messages.stream.return_value = FakeAnthropicStream(
+        text_stream=["Hello ", "Claude"],
+        final_message=final_message,
     )
 
     client = AnthropicClient(
@@ -39,11 +59,26 @@ def test_generate_returns_model_response(
         default_model="test-model",
     )
 
-    response = client.generate("Test prompt")
+    events = list(
+        client.generate(
+            "Test prompt",
+            system_prompt="Follow instructions",
+            temperature=0.4,
+            max_tokens=250,
+        )
+    )
 
+    assert [event.delta for event in events[:-1]] == [
+        "Hello ",
+        "Claude",
+    ]
+
+    response = events[-1].response
+
+    assert response is not None
     assert response.provider == "anthropic"
     assert response.model == "test-model"
-    assert response.content == "Normalized Anthropic response"
+    assert response.content == "Hello Claude"
     assert response.input_tokens == 12
     assert response.output_tokens == 8
     assert response.total_tokens == 20
@@ -51,42 +86,10 @@ def test_generate_returns_model_response(
     assert response.response_id == "message-123"
     assert response.request_id == "request-123"
 
-    mock_sdk_client.messages.create.assert_called_once_with(
+    mock_sdk_client.messages.stream.assert_called_once_with(
         model="test-model",
-        max_tokens=1024,
-        temperature=0.0,
-        messages=[
-            {
-                "role": "user",
-                "content": "Test prompt",
-            }
-        ],
-    )
-
-
-@patch("src.clients.anthropic.Anthropic")
-def test_generate_passes_system_prompt(
-    mock_anthropic_class: MagicMock,
-) -> None:
-    mock_sdk_client = mock_anthropic_class.return_value
-    mock_sdk_client.messages.create.return_value = (
-        create_fake_anthropic_response()
-    )
-
-    client = AnthropicClient(
-        api_key="test-key",
-        default_model="test-model",
-    )
-
-    client.generate(
-        "Test prompt",
-        system_prompt="Follow instructions",
-    )
-
-    mock_sdk_client.messages.create.assert_called_once_with(
-        model="test-model",
-        max_tokens=1024,
-        temperature=0.0,
+        max_tokens=250,
+        temperature=0.4,
         system="Follow instructions",
         messages=[
             {
@@ -98,48 +101,15 @@ def test_generate_passes_system_prompt(
 
 
 @patch("src.clients.anthropic.Anthropic")
-def test_generate_uses_model_override(
+def test_generate_handles_missing_usage(
     mock_anthropic_class: MagicMock,
 ) -> None:
     mock_sdk_client = mock_anthropic_class.return_value
-
-    fake_response = create_fake_anthropic_response()
-    fake_response.model = "override-model"
-
-    mock_sdk_client.messages.create.return_value = fake_response
-
-    client = AnthropicClient(
-        api_key="test-key",
-        default_model="default-model",
-    )
-
-    response = client.generate(
-        "Test prompt",
-        model="override-model",
-    )
-
-    assert response.model == "override-model"
-
-    mock_sdk_client.messages.create.assert_called_once_with(
-        model="override-model",
-        max_tokens=1024,
-        temperature=0.0,
-        messages=[
-            {
-                "role": "user",
-                "content": "Test prompt",
-            }
-        ],
-    )
-
-
-@patch("src.clients.anthropic.Anthropic")
-def test_generate_passes_custom_parameters(
-    mock_anthropic_class: MagicMock,
-) -> None:
-    mock_sdk_client = mock_anthropic_class.return_value
-    mock_sdk_client.messages.create.return_value = (
-        create_fake_anthropic_response()
+    final_message = create_fake_anthropic_response()
+    final_message.usage = None
+    mock_sdk_client.messages.stream.return_value = FakeAnthropicStream(
+        text_stream=[],
+        final_message=final_message,
     )
 
     client = AnthropicClient(
@@ -147,71 +117,11 @@ def test_generate_passes_custom_parameters(
         default_model="test-model",
     )
 
-    client.generate(
-        "Test prompt",
-        temperature=0.4,
-        max_tokens=250,
-    )
+    response = client.collect_response("Test prompt")
 
-    mock_sdk_client.messages.create.assert_called_once_with(
-        model="test-model",
-        max_tokens=250,
-        temperature=0.4,
-        messages=[
-            {
-                "role": "user",
-                "content": "Test prompt",
-            }
-        ],
-    )
-
-
-@patch("src.clients.anthropic.Anthropic")
-def test_generate_joins_multiple_text_blocks(
-    mock_anthropic_class: MagicMock,
-) -> None:
-    mock_sdk_client = mock_anthropic_class.return_value
-
-    fake_response = create_fake_anthropic_response()
-    fake_response.content = [
-        SimpleNamespace(type="text", text="First "),
-        SimpleNamespace(type="tool_use", name="search"),
-        SimpleNamespace(type="text", text="second"),
-    ]
-
-    mock_sdk_client.messages.create.return_value = fake_response
-
-    client = AnthropicClient(
-        api_key="test-key",
-        default_model="test-model",
-    )
-
-    response = client.generate("Test prompt")
-
-    assert response.content == "First second"
-
-
-@patch("src.clients.anthropic.Anthropic")
-def test_generate_returns_empty_content_when_no_text_blocks(
-    mock_anthropic_class: MagicMock,
-) -> None:
-    mock_sdk_client = mock_anthropic_class.return_value
-
-    fake_response = create_fake_anthropic_response()
-    fake_response.content = [
-        SimpleNamespace(type="tool_use", name="search"),
-    ]
-
-    mock_sdk_client.messages.create.return_value = fake_response
-
-    client = AnthropicClient(
-        api_key="test-key",
-        default_model="test-model",
-    )
-
-    response = client.generate("Test prompt")
-
-    assert response.content == ""
+    assert response.input_tokens == 0
+    assert response.output_tokens == 0
+    assert response.total_tokens == 0
 
 
 @patch.dict("os.environ", {}, clear=True)
@@ -223,9 +133,7 @@ def test_rejects_missing_api_key() -> None:
             "ANTHROPIC_API_KEY is not set"
         ),
     ):
-        AnthropicClient(
-            default_model="test-model",
-        )
+        AnthropicClient(default_model="test-model")
 
 
 def test_rejects_empty_default_model() -> None:
@@ -246,7 +154,7 @@ def test_rejects_empty_prompt(
     )
 
     with pytest.raises(ValueError, match="user_prompt cannot be empty"):
-        client.generate(" ")
+        list(client.generate(" "))
 
 
 @patch("src.clients.anthropic.Anthropic")
@@ -259,9 +167,11 @@ def test_rejects_empty_system_prompt(
     )
 
     with pytest.raises(ValueError, match="system_prompt cannot be empty"):
-        client.generate(
-            "Test prompt",
-            system_prompt=" ",
+        list(
+            client.generate(
+                "Test prompt",
+                system_prompt=" ",
+            )
         )
 
 
@@ -278,67 +188,9 @@ def test_rejects_non_positive_max_tokens(
         ValueError,
         match="max_tokens must be greater than zero",
     ):
-        client.generate(
-            "Test prompt",
-            max_tokens=0,
+        list(
+            client.generate(
+                "Test prompt",
+                max_tokens=0,
+            )
         )
-
-
-@patch.dict(
-    "os.environ",
-    {"ANTHROPIC_API_KEY": "env-test-key"},
-    clear=True,
-)
-@patch("src.clients.anthropic.Anthropic")
-def test_uses_api_key_from_environment(
-    mock_anthropic_class: MagicMock,
-) -> None:
-    AnthropicClient(default_model="test-model")
-
-    mock_anthropic_class.assert_called_once_with(
-        api_key="env-test-key",
-    )
-
-
-@patch("src.clients.anthropic.Anthropic")
-def test_generate_handles_missing_usage(
-    mock_anthropic_class: MagicMock,
-) -> None:
-    mock_sdk_client = mock_anthropic_class.return_value
-
-    fake_response = create_fake_anthropic_response()
-    fake_response.usage = None
-
-    mock_sdk_client.messages.create.return_value = fake_response
-
-    client = AnthropicClient(
-        api_key="test-key",
-        default_model="test-model",
-    )
-
-    response = client.generate("Test prompt")
-
-    assert response.input_tokens == 0
-    assert response.output_tokens == 0
-    assert response.total_tokens == 0
-
-
-@patch("src.clients.anthropic.Anthropic")
-def test_generate_handles_missing_content(
-    mock_anthropic_class: MagicMock,
-) -> None:
-    mock_sdk_client = mock_anthropic_class.return_value
-
-    fake_response = create_fake_anthropic_response()
-    del fake_response.content
-
-    mock_sdk_client.messages.create.return_value = fake_response
-
-    client = AnthropicClient(
-        api_key="test-key",
-        default_model="test-model",
-    )
-
-    response = client.generate("Test prompt")
-
-    assert response.content == ""

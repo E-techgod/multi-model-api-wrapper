@@ -1,4 +1,5 @@
 import time
+from collections.abc import Iterator
 from typing import Any
 import os
 
@@ -6,6 +7,7 @@ from openai import OpenAI
 
 from src.clients.base import BaseLLMClient
 from src.models.model_response import ModelResponse
+from src.models.stream_event import LLMStreamEvent
 
 
 class OpenAIClient(BaseLLMClient):
@@ -55,7 +57,7 @@ class OpenAIClient(BaseLLMClient):
         model: str | None = None,
         temperature: float = 0.0,
         max_tokens: int | None = None,
-    ) -> ModelResponse:
+    ) -> Iterator[LLMStreamEvent]:
         if not user_prompt.strip():
             raise ValueError("user_prompt cannot be empty")
 
@@ -80,15 +82,35 @@ class OpenAIClient(BaseLLMClient):
             request_options["instructions"] = system_prompt
 
         start_time = time.perf_counter()
+        text_parts: list[str] = []
 
-        raw_response = self._client.responses.create(
+        with self._client.responses.stream(
             **request_options,
-        )
+        ) as stream:
+            for event in stream:
+                if (
+                    getattr(event, "type", None)
+                    != "response.output_text.delta"
+                ):
+                    continue
+
+                delta = getattr(event, "delta", "") or ""
+
+                if not delta:
+                    continue
+
+                text_parts.append(delta)
+
+                yield LLMStreamEvent(
+                    type="text_delta",
+                    delta=delta,
+                    snapshot="".join(text_parts),
+                )
+
+            raw_response = stream.get_final_response()
 
         latency_seconds = time.perf_counter() - start_time
-
         usage = getattr(raw_response, "usage", None)
-
         input_tokens = (
             getattr(usage, "input_tokens", 0) or 0
             if usage is not None
@@ -104,17 +126,22 @@ class OpenAIClient(BaseLLMClient):
             if usage is not None
             else input_tokens + output_tokens
         )
+        content = getattr(raw_response, "output_text", "") or ""
 
-        return ModelResponse(
-            provider=self.provider_name,
-            model=getattr(raw_response, "model", selected_model),
-            content=getattr(raw_response, "output_text", "") or "",
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            total_tokens=total_tokens,
-            latency_seconds=latency_seconds,
-            finish_reason=getattr(raw_response, "status", None),
-            response_id=getattr(raw_response, "id", None),
-            request_id=getattr(raw_response, "_request_id", None),
-            raw_response=raw_response,
+        yield LLMStreamEvent(
+            type="response",
+            snapshot=content,
+            response=ModelResponse(
+                provider=self.provider_name,
+                model=getattr(raw_response, "model", selected_model),
+                content=content,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                total_tokens=total_tokens,
+                latency_seconds=latency_seconds,
+                finish_reason=getattr(raw_response, "status", None),
+                response_id=getattr(raw_response, "id", None),
+                request_id=getattr(raw_response, "_request_id", None),
+                raw_response=raw_response,
+            ),
         )

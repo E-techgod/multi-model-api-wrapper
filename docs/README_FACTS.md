@@ -20,7 +20,8 @@ MAIN CALL FLOW
 3. Each concrete client's __init__(self, model=None, api_key=None, **kwargs) accepts the model either positionally as `model` or via a `default_model` kwarg (not both), raises ValueError if api_key or the resolved model is missing/empty, and passes any remaining **kwargs through to the underlying provider SDK client constructor.
 4. Each concrete client subclasses BaseLLMClient (src/clients/base.py, ABC) and implements:
    - provider_name (property)
-   - generate(prompt, *, model=None, temperature, max_tokens=None) -> ModelResponse
+   - generate(user_prompt, *, model=None, temperature, max_tokens=None) -> Iterator[LLMStreamEvent]
+   - collect_response(user_prompt, *, model=None, temperature, max_tokens=None) -> ModelResponse
 5. generate() calls the underlying provider SDK, then normalizes the raw SDK response into src/models/model_response.py:ModelResponse (frozen dataclass with validation in __post_init__).
 6. Caller reads ModelResponse fields (content, provider, model, input_tokens, output_tokens, total_tokens, latency_seconds, finish_reason, response_id, request_id, raw_response).
 

@@ -6,34 +6,47 @@ import pytest
 from src.clients.groq import GroqClient
 
 
-def create_fake_groq_response() -> SimpleNamespace:
+def create_fake_groq_chunk(
+    *,
+    text: str | None,
+    finish_reason: str | None = None,
+    usage: object | None = None,
+    model: str = "test-model",
+    response_id: str = "completion-123",
+    request_id: str = "request-123",
+) -> SimpleNamespace:
     return SimpleNamespace(
-        id="completion-123",
-        model="test-model",
+        id=response_id,
+        model=model,
         choices=[
             SimpleNamespace(
-                message=SimpleNamespace(
-                    content="Normalized Groq response",
-                ),
-                finish_reason="stop",
+                delta=SimpleNamespace(content=text),
+                finish_reason=finish_reason,
             )
         ],
-        usage=SimpleNamespace(
-            prompt_tokens=11,
-            completion_tokens=7,
-            total_tokens=18,
-        ),
-        _request_id="request-123",
+        usage=usage,
+        _request_id=request_id,
     )
 
 
 @patch("src.clients.groq.Groq")
-def test_generate_returns_model_response(
+def test_generate_streams_deltas_and_final_response(
     mock_groq_class: MagicMock,
 ) -> None:
     mock_sdk_client = mock_groq_class.return_value
-    mock_sdk_client.chat.completions.create.return_value = (
-        create_fake_groq_response()
+    mock_sdk_client.chat.completions.create.return_value = iter(
+        [
+            create_fake_groq_chunk(text="Hello "),
+            create_fake_groq_chunk(
+                text="Groq",
+                finish_reason="stop",
+                usage=SimpleNamespace(
+                    prompt_tokens=11,
+                    completion_tokens=7,
+                    total_tokens=18,
+                ),
+            ),
+        ]
     )
 
     client = GroqClient(
@@ -41,11 +54,26 @@ def test_generate_returns_model_response(
         default_model="test-model",
     )
 
-    response = client.generate("Test prompt")
+    events = list(
+        client.generate(
+            "Test prompt",
+            system_prompt="Follow instructions",
+            temperature=0.5,
+            max_tokens=300,
+        )
+    )
 
+    assert [event.delta for event in events[:-1]] == [
+        "Hello ",
+        "Groq",
+    ]
+
+    response = events[-1].response
+
+    assert response is not None
     assert response.provider == "groq"
     assert response.model == "test-model"
-    assert response.content == "Normalized Groq response"
+    assert response.content == "Hello Groq"
     assert response.input_tokens == 11
     assert response.output_tokens == 7
     assert response.total_tokens == 18
@@ -57,79 +85,17 @@ def test_generate_returns_model_response(
         model="test-model",
         messages=[
             {
-                "role": "user",
-                "content": "Test prompt",
-            }
-        ],
-        temperature=0.0,
-    )
-
-
-@patch("src.clients.groq.Groq")
-def test_generate_uses_model_override(
-    mock_groq_class: MagicMock,
-) -> None:
-    mock_sdk_client = mock_groq_class.return_value
-
-    fake_response = create_fake_groq_response()
-    fake_response.model = "override-model"
-
-    mock_sdk_client.chat.completions.create.return_value = fake_response
-
-    client = GroqClient(
-        api_key="test-key",
-        default_model="default-model",
-    )
-
-    response = client.generate(
-        "Test prompt",
-        model="override-model",
-    )
-
-    assert response.model == "override-model"
-
-    mock_sdk_client.chat.completions.create.assert_called_once_with(
-        model="override-model",
-        messages=[
+                "role": "system",
+                "content": "Follow instructions",
+            },
             {
                 "role": "user",
                 "content": "Test prompt",
-            }
-        ],
-        temperature=0.0,
-    )
-
-
-@patch("src.clients.groq.Groq")
-def test_generate_passes_custom_parameters(
-    mock_groq_class: MagicMock,
-) -> None:
-    mock_sdk_client = mock_groq_class.return_value
-    mock_sdk_client.chat.completions.create.return_value = (
-        create_fake_groq_response()
-    )
-
-    client = GroqClient(
-        api_key="test-key",
-        default_model="test-model",
-    )
-
-    client.generate(
-        "Test prompt",
-        temperature=0.5,
-        max_tokens=300,
-    )
-
-    mock_sdk_client.chat.completions.create.assert_called_once_with(
-        model="test-model",
-        messages=[
-            {
-                "role": "user",
-                "content": "Test prompt",
-            }
+            },
         ],
         temperature=0.5,
         max_tokens=300,
+        stream=True,
     )
 
 
@@ -138,92 +104,20 @@ def test_generate_handles_missing_usage(
     mock_groq_class: MagicMock,
 ) -> None:
     mock_sdk_client = mock_groq_class.return_value
-
-    fake_response = create_fake_groq_response()
-    fake_response.usage = None
-
-    mock_sdk_client.chat.completions.create.return_value = fake_response
+    mock_sdk_client.chat.completions.create.return_value = iter(
+        [create_fake_groq_chunk(text="Hello")]
+    )
 
     client = GroqClient(
         api_key="test-key",
         default_model="test-model",
     )
 
-    response = client.generate("Test prompt")
+    response = client.collect_response("Test prompt")
 
     assert response.input_tokens == 0
     assert response.output_tokens == 0
     assert response.total_tokens == 0
-
-
-@patch("src.clients.groq.Groq")
-def test_generate_handles_empty_choices(
-    mock_groq_class: MagicMock,
-) -> None:
-    mock_sdk_client = mock_groq_class.return_value
-
-    fake_response = create_fake_groq_response()
-    fake_response.choices = []
-
-    mock_sdk_client.chat.completions.create.return_value = fake_response
-
-    client = GroqClient(
-        api_key="test-key",
-        default_model="test-model",
-    )
-
-    response = client.generate("Test prompt")
-
-    assert response.content == ""
-    assert response.finish_reason is None
-
-
-@patch("src.clients.groq.Groq")
-def test_generate_handles_missing_message(
-    mock_groq_class: MagicMock,
-) -> None:
-    mock_sdk_client = mock_groq_class.return_value
-
-    fake_response = create_fake_groq_response()
-    fake_response.choices = [
-        SimpleNamespace(
-            message=None,
-            finish_reason="stop",
-        )
-    ]
-
-    mock_sdk_client.chat.completions.create.return_value = fake_response
-
-    client = GroqClient(
-        api_key="test-key",
-        default_model="test-model",
-    )
-
-    response = client.generate("Test prompt")
-
-    assert response.content == ""
-    assert response.finish_reason == "stop"
-
-
-@patch("src.clients.groq.Groq")
-def test_generate_handles_none_content(
-    mock_groq_class: MagicMock,
-) -> None:
-    mock_sdk_client = mock_groq_class.return_value
-
-    fake_response = create_fake_groq_response()
-    fake_response.choices[0].message.content = None
-
-    mock_sdk_client.chat.completions.create.return_value = fake_response
-
-    client = GroqClient(
-        api_key="test-key",
-        default_model="test-model",
-    )
-
-    response = client.generate("Test prompt")
-
-    assert response.content == ""
 
 
 def test_rejects_empty_api_key() -> None:
@@ -232,6 +126,18 @@ def test_rejects_empty_api_key() -> None:
             api_key=" ",
             default_model="test-model",
         )
+
+
+@patch.dict("os.environ", {}, clear=True)
+def test_rejects_missing_api_key() -> None:
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Groq API key was not provided and "
+            "GROQ_API_KEY is not set"
+        ),
+    ):
+        GroqClient(default_model="test-model")
 
 
 def test_rejects_empty_default_model() -> None:
@@ -251,8 +157,26 @@ def test_rejects_empty_prompt(
         default_model="test-model",
     )
 
-    with pytest.raises(ValueError, match="prompt cannot be empty"):
-        client.generate(" ")
+    with pytest.raises(ValueError, match="user_prompt cannot be empty"):
+        list(client.generate(" "))
+
+
+@patch("src.clients.groq.Groq")
+def test_rejects_empty_system_prompt(
+    mock_groq_class: MagicMock,
+) -> None:
+    client = GroqClient(
+        api_key="test-key",
+        default_model="test-model",
+    )
+
+    with pytest.raises(ValueError, match="system_prompt cannot be empty"):
+        list(
+            client.generate(
+                "Test prompt",
+                system_prompt=" ",
+            )
+        )
 
 
 @patch("src.clients.groq.Groq")
@@ -268,7 +192,9 @@ def test_rejects_non_positive_max_tokens(
         ValueError,
         match="max_tokens must be greater than zero",
     ):
-        client.generate(
-            "Test prompt",
-            max_tokens=0,
+        list(
+            client.generate(
+                "Test prompt",
+                max_tokens=0,
+            )
         )

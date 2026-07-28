@@ -1,4 +1,5 @@
 import time
+from collections.abc import Iterator
 from typing import Any
 import os
 
@@ -6,6 +7,7 @@ from anthropic import Anthropic
 
 from src.clients.base import BaseLLMClient
 from src.models.model_response import ModelResponse
+from src.models.stream_event import LLMStreamEvent
 
 
 class AnthropicClient(BaseLLMClient):
@@ -55,7 +57,7 @@ class AnthropicClient(BaseLLMClient):
         model: str | None = None,
         temperature: float = 0.0,
         max_tokens: int | None = None,
-    ) -> ModelResponse:
+    ) -> Iterator[LLMStreamEvent]:
         if not user_prompt.strip():
             raise ValueError("user_prompt cannot be empty")
 
@@ -89,10 +91,27 @@ class AnthropicClient(BaseLLMClient):
         if system_prompt is not None:
             request_options["system"] = system_prompt
 
-        raw_response = self._client.messages.create(**request_options)
+        text_parts: list[str] = []
+
+        with self._client.messages.stream(
+            **request_options,
+        ) as stream:
+            for delta in stream.text_stream:
+                if not delta:
+                    continue
+
+                text_parts.append(delta)
+
+                yield LLMStreamEvent(
+                    type="text_delta",
+                    delta=delta,
+                    snapshot="".join(text_parts),
+                )
+
+            raw_response = stream.get_final_message()
+            request_id = getattr(stream, "request_id", None)
 
         latency_seconds = time.perf_counter() - start_time
-
         usage = getattr(raw_response, "usage", None)
         input_tokens = (
             getattr(usage, "input_tokens", 0) or 0
@@ -104,21 +123,26 @@ class AnthropicClient(BaseLLMClient):
             if usage is not None
             else 0
         )
+        content = self._extract_text(
+            getattr(raw_response, "content", []),
+        )
 
-        return ModelResponse(
-            provider=self.provider_name,
-            model=getattr(raw_response, "model", selected_model),
-            content=self._extract_text(
-                getattr(raw_response, "content", []),
+        yield LLMStreamEvent(
+            type="response",
+            snapshot=content,
+            response=ModelResponse(
+                provider=self.provider_name,
+                model=getattr(raw_response, "model", selected_model),
+                content=content,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                total_tokens=input_tokens + output_tokens,
+                latency_seconds=latency_seconds,
+                finish_reason=getattr(raw_response, "stop_reason", None),
+                response_id=getattr(raw_response, "id", None),
+                request_id=request_id,
+                raw_response=raw_response,
             ),
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            total_tokens=input_tokens + output_tokens,
-            latency_seconds=latency_seconds,
-            finish_reason=getattr(raw_response, "stop_reason", None),
-            response_id=getattr(raw_response, "id", None),
-            request_id=getattr(raw_response, "_request_id", None),
-            raw_response=raw_response,
         )
 
     @staticmethod

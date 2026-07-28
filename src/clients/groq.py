@@ -1,10 +1,12 @@
 import time
+from collections.abc import Iterator
 from typing import Any
 import os
 from groq import Groq
 
 from src.clients.base import BaseLLMClient
 from src.models.model_response import ModelResponse
+from src.models.stream_event import LLMStreamEvent
 
 
 class GroqClient(BaseLLMClient):
@@ -52,7 +54,7 @@ class GroqClient(BaseLLMClient):
         model: str | None = None,
         temperature: float = 0.0,
         max_tokens: int | None = None,
-    ) -> ModelResponse:
+    ) -> Iterator[LLMStreamEvent]:
         if not user_prompt.strip():
             raise ValueError("user_prompt cannot be empty")
 
@@ -91,10 +93,28 @@ class GroqClient(BaseLLMClient):
             request_options["max_tokens"] = max_tokens
 
         start_time = time.perf_counter()
-
-        raw_response = self._client.chat.completions.create(
+        raw_stream = self._client.chat.completions.create(
             **request_options,
+            stream=True,
         )
+        text_parts: list[str] = []
+        raw_response: object | None = None
+
+        for chunk in raw_stream:
+            raw_response = chunk
+            choice = self._get_first_choice(chunk)
+            delta = self._extract_delta_content(choice)
+
+            if not delta:
+                continue
+
+            text_parts.append(delta)
+
+            yield LLMStreamEvent(
+                type="text_delta",
+                delta=delta,
+                snapshot="".join(text_parts),
+            )
 
         latency_seconds = time.perf_counter() - start_time
 
@@ -119,18 +139,24 @@ class GroqClient(BaseLLMClient):
             else input_tokens + output_tokens
         )
 
-        return ModelResponse(
-            provider=self.provider_name,
-            model=getattr(raw_response, "model", selected_model),
-            content=self._extract_content(choice),
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            total_tokens=total_tokens,
-            latency_seconds=latency_seconds,
-            finish_reason=getattr(choice, "finish_reason", None),
-            response_id=getattr(raw_response, "id", None),
-            request_id=getattr(raw_response, "_request_id", None),
-            raw_response=raw_response,
+        content = "".join(text_parts)
+
+        yield LLMStreamEvent(
+            type="response",
+            snapshot=content,
+            response=ModelResponse(
+                provider=self.provider_name,
+                model=getattr(raw_response, "model", selected_model),
+                content=content,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                total_tokens=total_tokens,
+                latency_seconds=latency_seconds,
+                finish_reason=getattr(choice, "finish_reason", None),
+                response_id=getattr(raw_response, "id", None),
+                request_id=getattr(raw_response, "_request_id", None),
+                raw_response=raw_response,
+            ),
         )
 
     @staticmethod
@@ -157,5 +183,21 @@ class GroqClient(BaseLLMClient):
             return ""
 
         content = getattr(message, "content", None)
+
+        return content or ""
+
+    @staticmethod
+    def _extract_delta_content(choice: object | None) -> str:
+        """Extract streamed text from a Groq completion delta."""
+
+        if choice is None:
+            return ""
+
+        delta = getattr(choice, "delta", None)
+
+        if delta is None:
+            return ""
+
+        content = getattr(delta, "content", None)
 
         return content or ""

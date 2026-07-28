@@ -15,7 +15,7 @@ provider to force every response into that same structure.
 
 Once the shape was consistent, I pulled the provider calls behind a common
 interface (`BaseLLMClient` in `src/clients/`), so callers don't need to know
-which SDK they're talking to — just `generate(prompt, ...)`. I added a
+which SDK they're talking to — just `generate(user_prompt, ...)`. I added a
 `ClientFactory` so the provider is just a string you pass in, instead of
 importing four different client classes, then moved it under `src/factory/`
 so it packages alongside everything else. Most recently, all four client
@@ -31,7 +31,9 @@ constructors were reworked to take `model`/`api_key`/`**kwargs` (with
 - `src/clients/` — `OpenAIClient`, `AnthropicClient`, `GeminiClient`,
   `GroqClient`, all implementing `BaseLLMClient`. This is the real wrapper.
 - `src/models/model_response.py` — the normalized `ModelResponse` dataclass
-  every client returns.
+  emitted at the end of every stream.
+- `src/models/stream_event.py` — the normalized `LLMStreamEvent` dataclass
+  used for streaming text deltas and the final response event.
 - `src/factory/` — `ClientFactory.create(provider, model, api_key, **kwargs)`
   picks the right client from a provider string/enum.
 - `examples/` — one-shot demo scripts per provider.
@@ -49,18 +51,31 @@ client = ClientFactory.create(
     api_key="...",
 )
 
-response = client.generate(
-    prompt="Explain semantic search in one sentence.",
+final_response = None
+
+for event in client.generate(
+    user_prompt="Explain semantic search in one sentence.",
     temperature=0.7,
     max_tokens=200,
-)
+):
+    if event.delta:
+        print(event.delta, end="", flush=True)
 
-print(response.content)
-print(response.input_tokens, response.output_tokens, response.latency_seconds)
+    if event.response is not None:
+        final_response = event.response
+
+print()
+print(final_response.content)
+print(
+    final_response.input_tokens,
+    final_response.output_tokens,
+    final_response.latency_seconds,
+)
 ```
 
-Every provider returns the same `ModelResponse` fields, so downstream code
-doesn't have to branch on which provider answered.
+Every provider streams the same `LLMStreamEvent` shape and finishes with the
+same `ModelResponse` fields, so downstream code doesn't have to branch on
+which provider answered.
 
 ## Setup
 
