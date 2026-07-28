@@ -206,6 +206,8 @@ class GeminiClient(BaseLLMClient):
             if timeout <= 0:
                 raise ValueError("timeout must be greater than zero")
 
-            http_options_data["timeout"] = timeout
+            # google.genai HttpOptions.timeout is in milliseconds, while the
+            # rest of this wrapper (and the other provider SDKs) use seconds.
+            http_options_data["timeout"] = timeout * 1000
 
         return types.HttpOptions(**http_options_data)

@@ -8,8 +8,14 @@ def main() -> None:
 
     settings = LLMSettings(
         provider="groq",
-        model="llama-3.1-8b-instant",
+        model="llama-3.1-8b-instant", 
     )
+    """
+    groq: llama-3.1-8b-instant or openai/gpt-oss-20b
+    gemini: gemini-3.1-flash-lite
+    openai: pt-4o-mini-2024-07-18
+    anthropic: claude-haiku-4-5-20251001
+    """
 
     client = build_llm_client(settings)
 

@@ -20,13 +20,44 @@ class PricingRegistry:
         #     input_per_million=Decimal("0.00"),
         #     output_per_million=Decimal("0.00"),
         # ),
-        
         (
             "groq",
             "openai/gpt-oss-20b",
-        ):ModelPricing(
-                input_per_million=Decimal("0.01"),
-                output_per_million=Decimal("0.01"),
+        ): ModelPricing(
+            input_per_million=Decimal("0.075"),
+            output_per_million=Decimal("0.30"),
+        ),
+            
+        (
+            "gemini",
+            "gemini-3.1-flash-lite",
+        ): ModelPricing(
+            input_per_million=Decimal("0.25"),
+            output_per_million=Decimal("1.50"),
+        ),
+
+        (
+            "openai",
+            "gpt-4o-mini-2024-07-18",
+        ): ModelPricing(
+            input_per_million=Decimal("0.15"),
+            output_per_million=Decimal("0.60"),
+        ),
+
+        (
+            "anthropic",
+            "claude-haiku-4-5-20251001",
+        ): ModelPricing(
+            input_per_million=Decimal("1.00"),
+            output_per_million=Decimal("5.00"),
+        ),
+
+        (
+            "groq",
+            "llama-3.1-8b-instant",
+        ): ModelPricing(
+            input_per_million=Decimal("0.05"),
+            output_per_million=Decimal("0.08"),
         ),
 
     }
@@ -71,4 +102,3 @@ class PricingRegistry:
 
         return pricing
 
-    # With the updated graph and context reports generated. Fix this failed tests
