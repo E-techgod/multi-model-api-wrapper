@@ -23,7 +23,7 @@ def main() -> None:
     )
 
     response = client.generate(
-        prompt=(
+        user_prompt=(
             "Explain the difference between semantic search and "
             "keyword search in no more than 100 words."
         ),

@@ -7,8 +7,8 @@ def main() -> None:
     load_dotenv()
 
     settings = LLMSettings(
-        provider="anthropic",
-        model="claude-haiku-4-5-20251001",
+        provider="gemini",
+        model="gemini-3.1-flash-lite",
     )
 
     client = build_llm_client(settings)

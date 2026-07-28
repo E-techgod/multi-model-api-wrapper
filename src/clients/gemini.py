@@ -38,10 +38,17 @@ class GeminiClient(BaseLLMClient):
         if selected_model is None or not selected_model.strip():
             raise ValueError("default_model cannot be empty")
 
-        self._client = genai.Client(
-            api_key=resolved_api_key,
+        http_options = self._build_http_options(kwargs)
+
+        client_options: dict[str, Any] = {
+            "api_key": resolved_api_key,
             **kwargs,
-        )
+        }
+
+        if http_options is not None:
+            client_options["http_options"] = http_options
+
+        self._client = genai.Client(**client_options)
         self._default_model = selected_model
 
     @property
@@ -146,3 +153,54 @@ class GeminiClient(BaseLLMClient):
             return None
 
         return getattr(finish_reason, "name", str(finish_reason))
+
+    @staticmethod
+    def _build_http_options(
+        kwargs: dict[str, Any],
+    ) -> types.HttpOptions | dict[str, Any] | None:
+        """Translate shared client options into Gemini HTTP options."""
+
+        timeout = kwargs.pop("timeout", None)
+        max_retries = kwargs.pop("max_retries", None)
+        http_options = kwargs.pop("http_options", None)
+
+        if (
+            timeout is None
+            and max_retries is None
+            and http_options is None
+        ):
+            return None
+
+        if isinstance(http_options, types.HttpOptions):
+            http_options_data = http_options.model_dump(
+                exclude_none=True
+            )
+        elif isinstance(http_options, dict):
+            http_options_data = dict(http_options)
+        elif http_options is None:
+            http_options_data = {}
+        else:
+            raise ValueError(
+                "http_options must be a Gemini HttpOptions "
+                "instance or dict"
+            )
+
+        retry_options = http_options_data.get("retry_options")
+
+        if max_retries is not None:
+            if retry_options is None:
+                retry_options = {}
+            elif isinstance(retry_options, types.HttpRetryOptions):
+                retry_options = retry_options.model_dump(
+                    exclude_none=True
+                )
+            else:
+                retry_options = dict(retry_options)
+
+            retry_options["attempts"] = max_retries
+            http_options_data["retry_options"] = retry_options
+
+        if timeout is not None:
+            http_options_data["timeout"] = int(timeout)
+
+        return types.HttpOptions(**http_options_data)

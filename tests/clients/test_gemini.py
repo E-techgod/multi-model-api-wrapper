@@ -2,6 +2,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+from google.genai import types
 
 from src.clients.gemini import GeminiClient
 
@@ -56,6 +57,49 @@ def test_generate_returns_model_response(
     assert call_kwargs["model"] == "test-model"
     assert call_kwargs["contents"] == "Test prompt"
     assert call_kwargs["config"].temperature == 0.0
+
+
+@patch("src.clients.gemini.genai.Client")
+def test_constructor_translates_timeout_and_retries(
+    mock_genai_client_class: MagicMock,
+) -> None:
+    GeminiClient(
+        api_key="test-key",
+        default_model="test-model",
+        timeout=45,
+        max_retries=4,
+    )
+
+    call_kwargs = mock_genai_client_class.call_args.kwargs
+    http_options = call_kwargs["http_options"]
+
+    assert call_kwargs["api_key"] == "test-key"
+    assert http_options.timeout == 45
+    assert http_options.retry_options.attempts == 4
+
+
+@patch("src.clients.gemini.genai.Client")
+def test_constructor_merges_existing_http_options(
+    mock_genai_client_class: MagicMock,
+) -> None:
+    client_options = types.HttpOptions(
+        headers={"x-test": "1"},
+        timeout=10,
+    )
+
+    GeminiClient(
+        api_key="test-key",
+        default_model="test-model",
+        http_options=client_options,
+        max_retries=3,
+    )
+
+    call_kwargs = mock_genai_client_class.call_args.kwargs
+    http_options = call_kwargs["http_options"]
+
+    assert http_options.headers == {"x-test": "1"}
+    assert http_options.timeout == 10
+    assert http_options.retry_options.attempts == 3
 
 
 @patch("src.clients.gemini.genai.Client")
@@ -227,6 +271,18 @@ def test_rejects_empty_default_model() -> None:
         GeminiClient(
             api_key="test-key",
             default_model=" ",
+        )
+
+
+def test_rejects_invalid_http_options_type() -> None:
+    with pytest.raises(
+        ValueError,
+        match="http_options must be a Gemini HttpOptions instance or dict",
+    ):
+        GeminiClient(
+            api_key="test-key",
+            default_model="test-model",
+            http_options="invalid",
         )
 
 

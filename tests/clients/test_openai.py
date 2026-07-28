@@ -50,6 +50,34 @@ def test_generate_returns_model_response(
     mock_sdk_client.responses.create.assert_called_once_with(
         model="test-model",
         input="Test prompt",
+        temperature=0.0,
+    )
+
+
+@patch("src.clients.openai.OpenAI")
+def test_generate_passes_system_prompt(
+    mock_openai_class: MagicMock,
+) -> None:
+    mock_sdk_client = mock_openai_class.return_value
+    mock_sdk_client.responses.create.return_value = (
+        create_fake_openai_response()
+    )
+
+    client = OpenAIClient(
+        api_key="test-key",
+        default_model="test-model",
+    )
+
+    client.generate(
+        "Test prompt",
+        system_prompt="Follow instructions",
+    )
+
+    mock_sdk_client.responses.create.assert_called_once_with(
+        model="test-model",
+        input="Test prompt",
+        temperature=0.0,
+        instructions="Follow instructions",
     )
 
 
@@ -79,11 +107,12 @@ def test_generate_uses_model_override(
     mock_sdk_client.responses.create.assert_called_once_with(
         model="override-model",
         input="Test prompt",
+        temperature=0.0,
     )
 
 
 @patch("src.clients.openai.OpenAI")
-def test_generate_passes_max_tokens(
+def test_generate_passes_custom_parameters(
     mock_openai_class: MagicMock,
 ) -> None:
     mock_sdk_client = mock_openai_class.return_value
@@ -98,12 +127,14 @@ def test_generate_passes_max_tokens(
 
     client.generate(
         "Test prompt",
+        temperature=0.4,
         max_tokens=100,
     )
 
     mock_sdk_client.responses.create.assert_called_once_with(
         model="test-model",
         input="Test prompt",
+        temperature=0.4,
         max_output_tokens=100,
     )
 
@@ -131,10 +162,37 @@ def test_generate_handles_missing_usage(
     assert response.total_tokens == 0
 
 
-def test_rejects_empty_api_key() -> None:
-    with pytest.raises(ValueError, match="api_key cannot be empty"):
+@patch("src.clients.openai.OpenAI")
+def test_generate_handles_missing_output_text(
+    mock_openai_class: MagicMock,
+) -> None:
+    mock_sdk_client = mock_openai_class.return_value
+
+    fake_response = create_fake_openai_response()
+    fake_response.output_text = None
+
+    mock_sdk_client.responses.create.return_value = fake_response
+
+    client = OpenAIClient(
+        api_key="test-key",
+        default_model="test-model",
+    )
+
+    response = client.generate("Test prompt")
+
+    assert response.content == ""
+
+
+@patch.dict("os.environ", {}, clear=True)
+def test_rejects_missing_api_key() -> None:
+    with pytest.raises(
+        ValueError,
+        match=(
+            "OpenAI API key was not provided and "
+            "OPENAI_API_KEY is not set"
+        ),
+    ):
         OpenAIClient(
-            api_key=" ",
             default_model="test-model",
         )
 
@@ -156,5 +214,56 @@ def test_rejects_empty_prompt(
         default_model="test-model",
     )
 
-    with pytest.raises(ValueError, match="prompt cannot be empty"):
+    with pytest.raises(ValueError, match="user_prompt cannot be empty"):
         client.generate(" ")
+
+
+@patch("src.clients.openai.OpenAI")
+def test_rejects_empty_system_prompt(
+    mock_openai_class: MagicMock,
+) -> None:
+    client = OpenAIClient(
+        api_key="test-key",
+        default_model="test-model",
+    )
+
+    with pytest.raises(ValueError, match="system_prompt cannot be empty"):
+        client.generate(
+            "Test prompt",
+            system_prompt=" ",
+        )
+
+
+@patch("src.clients.openai.OpenAI")
+def test_rejects_non_positive_max_tokens(
+    mock_openai_class: MagicMock,
+) -> None:
+    client = OpenAIClient(
+        api_key="test-key",
+        default_model="test-model",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="max_tokens must be greater than zero",
+    ):
+        client.generate(
+            "Test prompt",
+            max_tokens=0,
+        )
+
+
+@patch.dict(
+    "os.environ",
+    {"OPENAI_API_KEY": "env-test-key"},
+    clear=True,
+)
+@patch("src.clients.openai.OpenAI")
+def test_uses_api_key_from_environment(
+    mock_openai_class: MagicMock,
+) -> None:
+    OpenAIClient(default_model="test-model")
+
+    mock_openai_class.assert_called_once_with(
+        api_key="env-test-key",
+    )

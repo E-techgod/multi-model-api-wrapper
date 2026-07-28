@@ -1,5 +1,6 @@
 import time
 from typing import Any
+import os
 
 from openai import OpenAI
 
@@ -10,9 +11,19 @@ from src.models.model_response import ModelResponse
 class OpenAIClient(BaseLLMClient):
     """OpenAI implementation of the shared LLM client interface."""
 
-    def __init__(self,model: str | None = None,api_key: str | None = None,**kwargs: Any) -> None:
-        if api_key is None or not api_key.strip():
-            raise ValueError("api_key cannot be empty")
+    def __init__(
+        self,
+        model: str | None = None,
+        api_key: str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        resolved_api_key = api_key or os.getenv("OPENAI_API_KEY")
+
+        if resolved_api_key is None or not resolved_api_key.strip():
+            raise ValueError(
+                "OpenAI API key was not provided and "
+                "OPENAI_API_KEY is not set"
+            )
 
         default_model = kwargs.pop("default_model", None)
 
@@ -26,7 +37,10 @@ class OpenAIClient(BaseLLMClient):
         if selected_model is None or not selected_model.strip():
             raise ValueError("default_model cannot be empty")
 
-        self._client = OpenAI(api_key=api_key, **kwargs)
+        self._client = OpenAI(
+            api_key=resolved_api_key,
+            **kwargs,
+        )
         self._default_model = selected_model
 
     @property
@@ -34,19 +48,36 @@ class OpenAIClient(BaseLLMClient):
         return "openai"
 
     def generate(
-        self,prompt: str, *, model: str | None = None, temperature: float = 0.0, max_tokens: int | None = None) -> ModelResponse:
-        if not prompt.strip():
-            raise ValueError("prompt cannot be empty")
+        self,
+        user_prompt: str,
+        *,
+        system_prompt: str | None = None,
+        model: str | None = None,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+    ) -> ModelResponse:
+        if not user_prompt.strip():
+            raise ValueError("user_prompt cannot be empty")
+
+        if system_prompt is not None and not system_prompt.strip():
+            raise ValueError("system_prompt cannot be empty")
+
+        if max_tokens is not None and max_tokens <= 0:
+            raise ValueError("max_tokens must be greater than zero")
 
         selected_model = model or self._default_model
 
         request_options: dict[str, object] = {
             "model": selected_model,
-            "input": prompt,
+            "input": user_prompt,
+            "temperature": temperature,
         }
 
         if max_tokens is not None:
             request_options["max_output_tokens"] = max_tokens
+
+        if system_prompt is not None:
+            request_options["instructions"] = system_prompt
 
         start_time = time.perf_counter()
 
@@ -56,22 +87,34 @@ class OpenAIClient(BaseLLMClient):
 
         latency_seconds = time.perf_counter() - start_time
 
-        usage = raw_response.usage
+        usage = getattr(raw_response, "usage", None)
 
-        input_tokens = usage.input_tokens if usage is not None else 0
-        output_tokens = usage.output_tokens if usage is not None else 0
-        total_tokens = usage.total_tokens if usage is not None else 0
+        input_tokens = (
+            getattr(usage, "input_tokens", 0) or 0
+            if usage is not None
+            else 0
+        )
+        output_tokens = (
+            getattr(usage, "output_tokens", 0) or 0
+            if usage is not None
+            else 0
+        )
+        total_tokens = (
+            getattr(usage, "total_tokens", 0) or 0
+            if usage is not None
+            else input_tokens + output_tokens
+        )
 
         return ModelResponse(
             provider=self.provider_name,
-            model=raw_response.model,
-            content=raw_response.output_text,
+            model=getattr(raw_response, "model", selected_model),
+            content=getattr(raw_response, "output_text", "") or "",
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             total_tokens=total_tokens,
             latency_seconds=latency_seconds,
-            finish_reason=raw_response.status,
-            response_id=raw_response.id,
+            finish_reason=getattr(raw_response, "status", None),
+            response_id=getattr(raw_response, "id", None),
             request_id=getattr(raw_response, "_request_id", None),
             raw_response=raw_response,
         )
