@@ -43,40 +43,88 @@ normalized response model.
 
 ## Request Flow
 
-```text
-CLI / service / caller
-        |
-        v
-LLMSettings -> build_llm_client() -> ClientFactory.create()
-        |
-        v
-OpenAIClient | AnthropicClient | GeminiClient | GroqClient
-        |
-        v
-LLMStreamEvent(type="text_delta") ... N times
-        |
-        v
-LLMStreamEvent(type="response", response=ModelResponse(...))
-        |
-        v
-PricingRegistry + calculate_usage_cost()
-        |
-        v
-caller reads normalized content, tokens, ids, latency, finish reason, cost
+```mermaid
+flowchart TD
+    caller[CLI / service / caller]
+    settings[LLMSettings]
+    builder[build_llm_client()]
+    factory[ClientFactory.create()]
+    openai[OpenAIClient]
+    anthropic[AnthropicClient]
+    gemini[GeminiClient]
+    groq[GroqClient]
+    delta[LLMStreamEvent type=text_delta]
+    response[LLMStreamEvent type=response]
+    modelResponse[ModelResponse]
+    pricing[PricingRegistry + calculate_usage_cost()]
+    output[Normalized content, tokens, ids, latency, finish reason, cost]
+
+    caller --> settings --> builder --> factory
+    factory --> openai
+    factory --> anthropic
+    factory --> gemini
+    factory --> groq
+
+    openai --> delta
+    anthropic --> delta
+    gemini --> delta
+    groq --> delta
+
+    delta --> response --> modelResponse --> pricing --> output
 ```
 
 ## Architectural Shape
 
-This wrapper is organized around a narrow waist:
+```mermaid
+flowchart TB
+    subgraph above[Above the waist]
+        callers[Callers]
+        config[LLMSettings + build_llm_client()]
+        factory[ClientFactory]
+    end
 
-- Above the waist, callers only deal with settings, a factory, and the shared
-  `BaseLLMClient` interface.
-- At the waist, each provider adapter implements the same `generate()` contract.
-- Below the waist, all outputs collapse into shared primitives:
-  `LLMStreamEvent`, `ModelResponse`, and `LLMError` subclasses.
+    subgraph waist[Waist]
+        base[BaseLLMClient.generate()]
+    end
 
-That keeps provider-specific code isolated to `src/clients/`. Everything else in
-the project consumes a provider-agnostic shape.
+    subgraph providers[Provider adapters]
+        oa[OpenAI adapter]
+        an[Anthropic adapter]
+        ge[Gemini adapter]
+        gr[Groq adapter]
+    end
+
+    subgraph below[Below the waist]
+        events[LLMStreamEvent]
+        response[ModelResponse]
+        errors[LLMError hierarchy]
+        cost[PricingRegistry + cost calculator]
+    end
+
+    callers --> config --> factory --> base
+    base --> oa
+    base --> an
+    base --> ge
+    base --> gr
+
+    oa --> events
+    an --> events
+    ge --> events
+    gr --> events
+
+    events --> response
+    oa -. exceptions .-> errors
+    an -. exceptions .-> errors
+    ge -. exceptions .-> errors
+    gr -. exceptions .-> errors
+    response --> cost
+```
+
+This wrapper is organized around a narrow waist. Callers interact with settings,
+the builder, the factory, and one shared client contract, while provider-specific
+SDK details stay isolated inside `src/clients/`. Everything emitted below that
+layer collapses into shared primitives: `LLMStreamEvent`, `ModelResponse`, and
+the normalized `LLMError` hierarchy.
 
 ## Project Layout
 
