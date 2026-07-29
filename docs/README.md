@@ -45,19 +45,19 @@ normalized response model.
 
 ```mermaid
 flowchart TD
-    caller[CLI / service / caller]
-    settings[LLMSettings]
-    builder[build_llm_client()]
-    factory[ClientFactory.create()]
-    openai[OpenAIClient]
-    anthropic[AnthropicClient]
-    gemini[GeminiClient]
-    groq[GroqClient]
-    delta[LLMStreamEvent type=text_delta]
-    response[LLMStreamEvent type=response]
-    modelResponse[ModelResponse]
-    pricing[PricingRegistry + calculate_usage_cost()]
-    output[Normalized content, tokens, ids, latency, finish reason, cost]
+    caller["CLI / service / caller"]
+    settings["LLMSettings"]
+    builder["build_llm_client()"]
+    factory["ClientFactory.create()"]
+    openai["OpenAIClient"]
+    anthropic["AnthropicClient"]
+    gemini["GeminiClient"]
+    groq["GroqClient"]
+    delta["LLMStreamEvent: text_delta"]
+    response["LLMStreamEvent: response"]
+    modelResponse["ModelResponse"]
+    pricing["PricingRegistry + calculate_usage_cost()"]
+    output["Normalized content, tokens, ids, latency, finish reason, cost"]
 
     caller --> settings --> builder --> factory
     factory --> openai
@@ -78,27 +78,27 @@ flowchart TD
 ```mermaid
 flowchart TB
     subgraph above[Above the waist]
-        callers[Callers]
-        config[LLMSettings + build_llm_client()]
-        factory[ClientFactory]
+        callers["Callers"]
+        config["LLMSettings + build_llm_client()"]
+        factory["ClientFactory"]
     end
 
     subgraph waist[Waist]
-        base[BaseLLMClient.generate()]
+        base["BaseLLMClient.generate()"]
     end
 
     subgraph providers[Provider adapters]
-        oa[OpenAI adapter]
-        an[Anthropic adapter]
-        ge[Gemini adapter]
-        gr[Groq adapter]
+        oa["OpenAI adapter"]
+        an["Anthropic adapter"]
+        ge["Gemini adapter"]
+        gr["Groq adapter"]
     end
 
     subgraph below[Below the waist]
-        events[LLMStreamEvent]
-        response[ModelResponse]
-        errors[LLMError hierarchy]
-        cost[PricingRegistry + cost calculator]
+        events["LLMStreamEvent"]
+        response["ModelResponse"]
+        errors["LLMError hierarchy"]
+        cost["PricingRegistry + cost calculator"]
     end
 
     callers --> config --> factory --> base
